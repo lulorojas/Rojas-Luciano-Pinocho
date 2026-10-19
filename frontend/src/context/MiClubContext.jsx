@@ -7,6 +7,9 @@ import { getProfesores } from '../services/profesoresService.js';
 import { getMisCuotas, getMisInscripciones } from '../services/miClubService.js';
 import Spinner from '../components/ui/Spinner.jsx';
 import ErrorState from '../components/ui/ErrorState.jsx';
+import { ESTADOS_INSCRIPCION_CERRADOS } from '../utils/constants.js';
+
+const estaVigente = (inscripcion) => !ESTADOS_INSCRIPCION_CERRADOS.includes(inscripcion.estado);
 
 /**
  * Datos de la vista de socio, cargados una vez y compartidos entre pantallas.
@@ -38,9 +41,9 @@ export default function MiClubProvider({ children }) {
             horariosDe: (idDisciplina) => data.horarios.filter((horario) => horario.idDisciplina === idDisciplina),
             // La inscripción más reciente de cada disciplina que no esté dada de baja
             inscripcionVigente: (idDisciplina) => data.inscripciones.find(
-                (inscripcion) => inscripcion.idDisciplina === idDisciplina && inscripcion.estado !== 'baja',
+                (inscripcion) => inscripcion.idDisciplina === idDisciplina && estaVigente(inscripcion),
             ) ?? null,
-            vigentes: data.inscripciones.filter((inscripcion) => inscripcion.estado !== 'baja'),
+            vigentes: data.inscripciones.filter(estaVigente),
         };
     }, [data, reload]);
 

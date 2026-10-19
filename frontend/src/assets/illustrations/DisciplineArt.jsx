@@ -109,6 +109,81 @@ function Basketball() {
     );
 }
 
+function Skating() {
+    return (
+        <>
+            <rect width="320" height="200" fill="#f6d8ea" />
+            <circle cx="52" cy="44" r="30" fill="#fff" opacity="0.35" />
+            <circle cx="276" cy="150" r="46" fill="#fff" opacity="0.3" />
+            <rect y="150" width="320" height="50" fill="#e9b3d2" />
+            <ellipse cx="160" cy="166" rx="84" ry="9" fill="#2b2118" opacity="0.14" />
+            <g className="float">
+                <path d="M112 62h34l6 54h46a24 24 0 0 1 24 24v6H108Z" fill="#fff" stroke="#c0398a" strokeWidth="5" strokeLinejoin="round" />
+                <path d="M146 62h14l5 30h-17Z" fill="#c0398a" />
+                <rect x="104" y="146" width="108" height="9" rx="4.5" fill="#2b2118" />
+                {[126, 148, 176, 198].map((x) => (
+                    <g key={x}>
+                        <circle cx={x} cy="164" r="11" fill="#f5a30a" stroke="#2b2118" strokeWidth="4" />
+                        <circle cx={x} cy="164" r="3" fill="#2b2118" />
+                    </g>
+                ))}
+                <path d="M112 84q-24 10-38 34" fill="none" stroke="#d9582b" strokeWidth="5" strokeLinecap="round" className="dash-flow" strokeDasharray="2 9" />
+            </g>
+            {[[48, 120], [262, 70], [236, 36], [86, 36]].map(([x, y], index) => (
+                <g key={x} transform={`translate(${x} ${y})`}>
+                    <path
+                        className="twinkle"
+                        style={{ animationDelay: `${index * 0.45}s` }}
+                        d="M0-9 2.5-2.5 9 0 2.5 2.5 0 9-2.5 2.5-9 0-2.5-2.5Z"
+                        fill="#fff"
+                    />
+                </g>
+            ))}
+        </>
+    );
+}
+
+function Gymnastics() {
+    return (
+        <>
+            <rect width="320" height="200" fill="#cfe3f8" />
+            <circle cx="262" cy="44" r="24" fill="#fff" opacity="0.6" />
+            <rect y="156" width="320" height="44" fill="#9fc1e8" />
+            <rect x="46" y="116" width="228" height="14" rx="7" fill="#b9774a" />
+            <rect x="74" y="130" width="10" height="42" rx="3" fill="#8a5a3a" />
+            <rect x="236" y="130" width="10" height="42" rx="3" fill="#8a5a3a" />
+            <g transform="translate(160 112)">
+                <g className="sway" style={{ transformOrigin: '0px 0px' }}>
+                    <circle cy="-72" r="13" fill="#e9a77d" />
+                    <path d="M-13 -78c2-14 26-14 28 0-7-5-21-5-28 0Z" fill="#3a2a22" />
+                    <path d="M-12 -58h24l5 40h-34Z" fill="#7a4fd0" />
+                    <path d="M-10 -56 -36 -92M10 -56 36 -92" fill="none" stroke="#e9a77d" strokeWidth="8" strokeLinecap="round" />
+                    <path d="M-8 -18 -16 0M8 -18 20 -4" fill="none" stroke="#e9a77d" strokeWidth="8" strokeLinecap="round" />
+                </g>
+            </g>
+            <path
+                className="dash-flow"
+                d="M196 28c24 14 4 34 30 44s30-12 44-4"
+                fill="none"
+                stroke="#d9582b"
+                strokeWidth="5"
+                strokeLinecap="round"
+                strokeDasharray="3 9"
+            />
+            {[[56, 50], [112, 28], [286, 112]].map(([x, y], index) => (
+                <g key={x} transform={`translate(${x} ${y})`}>
+                    <path
+                        className="twinkle"
+                        style={{ animationDelay: `${index * 0.6}s` }}
+                        d="M0-9 2.5-2.5 9 0 2.5 2.5 0 9-2.5 2.5-9 0-2.5-2.5Z"
+                        fill="#fff"
+                    />
+                </g>
+            ))}
+        </>
+    );
+}
+
 function Generic() {
     return (
         <>
@@ -124,7 +199,15 @@ function Generic() {
     );
 }
 
-const ARTS = { natacion: Swimming, futbol: Football, yoga: Yoga, basquet: Basketball, generico: Generic };
+const ARTS = {
+    natacion: Swimming,
+    futbol: Football,
+    yoga: Yoga,
+    basquet: Basketball,
+    patin: Skating,
+    gimnasia: Gymnastics,
+    generico: Generic,
+};
 
 /** Ilustración de una disciplina. Decorativa: el nombre de la disciplina siempre aparece como texto al lado. */
 export default function DisciplineArt({ kind = 'generico', className = '' }) {

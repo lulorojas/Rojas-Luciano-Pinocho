@@ -6,8 +6,10 @@ import { formatCurrency } from '../../utils/formatters.js';
 import { DIAS_SEMANA } from '../../utils/constants.js';
 
 const STATUS_LABEL = {
-    pendiente: 'Solicitud enviada',
-    confirmada: 'Ya sos parte',
+    PENDIENTE: 'Solicitud enviada',
+    CONFIRMADA: 'Ya sos parte',
+    SUSPENDIDA: 'Lugar suspendido',
+    BAJA_PENDIENTE: 'Baja pedida',
 };
 
 /**
@@ -23,7 +25,7 @@ export default function DisciplineCard({ disciplina, horarios, inscripcion, onOp
         <article className={`discipline-card discipline-card--${kind}`}>
             <div className="discipline-card__art">
                 <DisciplineArt kind={kind} />
-                {status && <span className={`status-pill status-pill--${inscripcion.estado}`}>{status}</span>}
+                {status && <span className={`status-pill status-pill--${inscripcion.estado.toLowerCase()}`}>{status}</span>}
             </div>
             <div className="discipline-card__body">
                 <h3 className="discipline-card__title">

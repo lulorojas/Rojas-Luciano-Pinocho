@@ -54,7 +54,7 @@ const fields = ({ socios, disciplinas }) => [
         type: 'select',
         required: true,
         options: toOptions(ESTADOS_INSCRIPCION),
-        defaultValue: 'pendiente',
+        defaultValue: 'PENDIENTE',
     },
 ];
 
@@ -67,24 +67,43 @@ const filters = () => [
     },
 ];
 
-// Acciones del flujo solicitud → confirmación → baja
+// Acciones del flujo: solicitud → confirmación → baja. La baja de una inscripción confirmada la pide
+// el socio (BAJA_PENDIENTE) y el administrador la finaliza.
 const extraActions = (item) => [
     {
         label: 'Confirmar',
         primary: true,
-        hidden: item.estado !== 'pendiente',
-        run: () => updateInscripcion(item.id, { estado: 'confirmada' }),
+        hidden: item.estado !== 'PENDIENTE',
+        run: () => updateInscripcion(item.id, { estado: 'CONFIRMADA' }),
         success: 'Inscripción confirmada correctamente',
     },
     {
+        label: 'Rechazar',
+        hidden: item.estado !== 'PENDIENTE',
+        confirm: {
+            title: 'Rechazar la solicitud',
+            message: (nombre) => `¿Seguro que querés rechazar la solicitud de "${nombre}"?`,
+            confirmLabel: 'Rechazar',
+        },
+        run: () => updateInscripcion(item.id, { estado: 'CANCELADA' }),
+        success: 'Solicitud rechazada',
+    },
+    {
+        label: 'Aprobar baja',
+        primary: true,
+        hidden: item.estado !== 'BAJA_PENDIENTE',
+        run: () => updateInscripcion(item.id, { estado: 'FINALIZADA' }),
+        success: 'Baja aprobada correctamente',
+    },
+    {
         label: 'Dar de baja',
-        hidden: item.estado === 'baja',
+        hidden: !['CONFIRMADA', 'SUSPENDIDA'].includes(item.estado),
         confirm: {
             title: 'Dar de baja la inscripción',
-            message: (nombre) => `¿Seguro que querés dar de baja la inscripción de "${nombre}"? Podés reactivarla editándola.`,
+            message: (nombre) => `¿Seguro que querés dar de baja la inscripción de "${nombre}"? Se libera su lugar en la disciplina.`,
             confirmLabel: 'Dar de baja',
         },
-        run: () => updateInscripcion(item.id, { estado: 'baja' }),
+        run: () => updateInscripcion(item.id, { estado: 'FINALIZADA' }),
         success: 'Baja registrada correctamente',
     },
 ];

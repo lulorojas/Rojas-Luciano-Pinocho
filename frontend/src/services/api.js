@@ -1,6 +1,7 @@
 import { getToken } from './session.js';
 
-export const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+// El backend publica todo bajo /api y responde { success, data } o { success: false, message }
+export const API_URL = `${import.meta.env.VITE_API_URL ?? 'http://localhost:3000'}/api`;
 
 // La capa de sesión se registra acá para enterarse de los 401 sin que api.js dependa de React
 let onUnauthorized = null;
@@ -9,8 +10,8 @@ export function setUnauthorizedHandler(handler) {
 }
 
 /**
- * Único punto donde se hace fetch. Agrega el token, detecta respuestas incorrectas y
- * lanza un Error con el mensaje que devuelve el backend ({ message }).
+ * Único punto donde se hace fetch. Agrega el token, detecta respuestas incorrectas, desenvuelve
+ * `data` y lanza un Error con el mensaje que devuelve el backend ({ message }).
  */
 export async function request(path, options = {}) {
     const token = getToken();
@@ -28,15 +29,15 @@ export async function request(path, options = {}) {
         throw new Error('No se pudo conectar con el servidor. Verificá que el backend esté en ejecución.');
     }
 
-    if (!response.ok) {
-        const body = await response.json().catch(() => null);
+    const body = await response.json().catch(() => null);
+
+    if (!response.ok || body?.success === false) {
         // Un 401 con token enviado significa sesión vencida (un login fallido no manda token)
         if (response.status === 401 && token) onUnauthorized?.();
         throw new Error(body?.message ?? `Error inesperado (${response.status})`);
     }
 
-    if (response.status === 204) return null;
-    return response.json();
+    return body?.data ?? null;
 }
 
 /** Arma las operaciones CRUD estándar para un recurso REST (/recurso). */

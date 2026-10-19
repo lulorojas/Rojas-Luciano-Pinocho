@@ -30,11 +30,11 @@ export default function WeekGrid({ items, now }) {
                                 {classes.map(({ key, horario, disciplina, estado }) => (
                                     <li
                                         key={key}
-                                        className={`class-chip class-chip--${disciplineKind(disciplina.nombre)} ${estado === 'pendiente' ? 'class-chip--pending' : ''}`}
+                                        className={`class-chip class-chip--${disciplineKind(disciplina.nombre)} ${estado === 'PENDIENTE' ? 'class-chip--pending' : ''}`}
                                     >
                                         <time className="class-chip__time" dateTime={horario.horaInicio}>{horario.horaInicio}</time>
                                         <span className="class-chip__name">{disciplina.nombre}</span>
-                                        {estado === 'pendiente' && <span className="class-chip__tag">Pendiente</span>}
+                                        {estado === 'PENDIENTE' && <span className="class-chip__tag">Pendiente</span>}
                                     </li>
                                 ))}
                             </ul>

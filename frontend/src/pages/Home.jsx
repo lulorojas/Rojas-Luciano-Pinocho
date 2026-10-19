@@ -72,7 +72,7 @@ export default function Home() {
     const socioName = (id) => fullName(data.socios.find((socio) => socio.id === id));
     const disciplinaName = (id) => data.disciplinas.find((disciplina) => disciplina.id === id)?.nombre ?? '—';
 
-    const pendingInscripciones = data.inscripciones.filter((i) => i.estado === 'pendiente');
+    const pendingInscripciones = data.inscripciones.filter((i) => i.estado === 'PENDIENTE');
     const overdueCuotas = data.cuotas.filter((c) => c.estado === 'vencida');
     const pendingCuotas = data.cuotas.filter((c) => c.estado === 'pendiente');
 
@@ -90,7 +90,7 @@ export default function Home() {
             title: `${socioName(inscripcion.idSocio)} quiere sumarse a ${disciplinaName(inscripcion.idDisciplina)}`,
             detail: 'Inscripción pendiente de confirmación',
             action: 'Confirmar',
-            run: () => resolve(() => updateInscripcion(inscripcion.id, { estado: 'confirmada' }), 'Inscripción confirmada correctamente'),
+            run: () => resolve(() => updateInscripcion(inscripcion.id, { estado: 'CONFIRMADA' }), 'Inscripción confirmada correctamente'),
         })),
     ];
 
@@ -102,7 +102,7 @@ export default function Home() {
     const summary = [
         { label: 'Socios activos', value: data.socios.filter((s) => s.estado === 'activo').length, to: '/admin/socios' },
         { label: 'Disciplinas activas', value: data.disciplinas.filter((d) => d.activa).length, to: '/admin/disciplinas' },
-        { label: 'Inscripciones pendientes', value: pendingInscripciones.length, to: '/admin/inscripciones?estado=pendiente' },
+        { label: 'Inscripciones pendientes', value: pendingInscripciones.length, to: '/admin/inscripciones?estado=PENDIENTE' },
         { label: 'Cuotas vencidas', value: overdueCuotas.length, to: '/admin/cuotas?estado=vencida' },
         { label: 'Cuotas pendientes', value: pendingCuotas.length, to: '/admin/cuotas?estado=pendiente' },
     ];
@@ -146,7 +146,7 @@ export default function Home() {
                     {attention.length > MAX_ATTENTION_ITEMS && (
                         <p className="attention__more">
                             Y {attention.length - MAX_ATTENTION_ITEMS} más: revisá <Link to="/admin/cuotas?estado=vencida">cuotas</Link> e{' '}
-                            <Link to="/admin/inscripciones?estado=pendiente">inscripciones</Link>.
+                            <Link to="/admin/inscripciones?estado=PENDIENTE">inscripciones</Link>.
                         </p>
                     )}
                 </Card>

@@ -3,9 +3,11 @@ const normalize = (text) => text.normalize('NFD').replace(/\p{M}/gu, '').toLower
 
 const RULES = [
     ['natacion', ['natac', 'pileta', 'swim', 'acuatic']],
-    ['futbol', ['futbol', 'soccer']],
+    ['futbol', ['futbol', 'futsal', 'soccer']],
     ['yoga', ['yoga', 'pilates', 'meditac', 'stretch']],
     ['basquet', ['basquet', 'basket']],
+    ['patin', ['patin', 'skate', 'roller']],
+    ['gimnasia', ['gimnasia', 'gimnast']],
 ];
 
 export function disciplineKind(nombre = '') {

@@ -27,7 +27,7 @@ export default function Inicio() {
 
     // La próxima clase sale de las inscripciones confirmadas
     const upcoming = club.inscripciones
-        .filter((inscripcion) => inscripcion.estado === 'confirmada')
+        .filter((inscripcion) => inscripcion.estado === 'CONFIRMADA')
         .flatMap((inscripcion) => club.horariosDe(inscripcion.idDisciplina).map((horario) => ({
             horario,
             disciplina: club.disciplinaById.get(inscripcion.idDisciplina),

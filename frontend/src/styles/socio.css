@@ -263,6 +263,8 @@
 }
 
 .status-pill--pendiente,
+.status-pill--baja_pendiente,
+.status-pill--suspendida,
 .status-pill--soon {
     background: var(--color-accent-tint);
     color: var(--color-accent-ink);
@@ -719,6 +721,14 @@
     --kind: #e4822f;
 }
 
+.next-class--patin {
+    --kind: #c0398a;
+}
+
+.next-class--gimnasia {
+    --kind: #7a4fd0;
+}
+
 .next-class__art {
     min-height: 180px;
 }
@@ -981,6 +991,14 @@
 
 .class-chip--basquet {
     --kind: #e4822f;
+}
+
+.class-chip--patin {
+    --kind: #c0398a;
+}
+
+.class-chip--gimnasia {
+    --kind: #7a4fd0;
 }
 
 .class-chip--pending {

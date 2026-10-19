@@ -1,8 +1,8 @@
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createApp } from '../src/app.js';
-import { createToken } from '../src/auth/tokens.js';
-import { DEMO_PASSWORD } from '../src/store/seedAccounts.js';
+import { createToken } from '../src/security/tokens.js';
+import { DEMO_PASSWORD } from '../src/security/demoPassword.js';
 
 let server;
 let base;
@@ -10,22 +10,25 @@ let base;
 before(async () => {
     server = createApp().listen(0);
     await new Promise((resolve) => server.once('listening', resolve));
-    base = `http://localhost:${server.address().port}`;
+    base = `http://localhost:${server.address().port}/api`;
 });
 
 after(() => new Promise((resolve) => server.close(resolve)));
 
+// Las respuestas de la API tienen el formato { success, data } o { success: false, message }.
+// Acá `body` es `data` si salió bien, o el objeto completo (con `message`) si falló.
 async function call(path, { method = 'GET', token, body } = {}) {
     const response = await fetch(`${base}${path}`, {
         method,
         headers: {
             'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: body === undefined ? undefined : JSON.stringify(body)
     });
     const text = await response.text();
-    return { status: response.status, body: text ? JSON.parse(text) : null, text };
+    const parsed = text ? JSON.parse(text) : null;
+    return { status: response.status, body: parsed?.success ? parsed.data : parsed, text };
 }
 
 async function login(email, password = DEMO_PASSWORD) {
@@ -37,6 +40,18 @@ async function login(email, password = DEMO_PASSWORD) {
 const ADMIN = 'admin@pinocho.test';
 const LUCIA = 'lucia@mail.com'; // socio 1
 const TOMAS = 'tomas@mail.com'; // socio 2
+
+describe('formato de respuesta', () => {
+    test('éxito: { success: true, data } · error: { success: false, message }', async () => {
+        const ok = await fetch(`${base}/public/disciplinas`).then((response) => response.json());
+        assert.equal(ok.success, true);
+        assert.ok(Array.isArray(ok.data));
+
+        const error = await fetch(`${base}/socios`).then((response) => response.json());
+        assert.equal(error.success, false);
+        assert.equal(typeof error.message, 'string');
+    });
+});
 
 describe('autenticación', () => {
     test('rutas protegidas sin token devuelven 401', async () => {
@@ -66,6 +81,12 @@ describe('autenticación', () => {
         assert.equal((await call('/disciplinas', { token: ghost })).status, 401);
     });
 
+    test('un token de socio con rol cambiado a admin (firmado) no sirve si el id no es de un admin', async () => {
+        // sub 2 existe como socio pero NO como administrador: el rol se vuelve a leer del repository
+        const confused = createToken({ sub: 2, rol: 'admin' });
+        assert.equal((await call('/socios', { token: confused })).status, 401);
+    });
+
     test('login con credenciales incorrectas da el mismo mensaje para email inexistente y contraseña errónea', async () => {
         const wrongPassword = await call('/auth/login', { method: 'POST', body: { email: LUCIA, password: 'incorrecta' } });
         const unknownEmail = await call('/auth/login', { method: 'POST', body: { email: 'nadie@mail.com', password: 'incorrecta' } });
@@ -90,8 +111,8 @@ describe('registro público', () => {
             method: 'POST',
             body: {
                 nombre: 'Nuevo', apellido: 'Socio', email: 'nuevo.rol@mail.com', password: 'unaClaveLarga1',
-                rol: 'admin', estado: 'baja', passwordHash: 'x', id: 1,
-            },
+                rol: 'admin', estado: 'baja', passwordHash: 'x', id: 1
+            }
         });
         assert.equal(status, 201);
         assert.equal(body.user.rol, 'socio');
@@ -102,11 +123,12 @@ describe('registro público', () => {
         assert.equal((await call('/socios', { token: body.token })).status, 403);
     });
 
-    test('rechaza email repetido, contraseña corta y email inválido', async () => {
-        const base = { nombre: 'A', apellido: 'B', password: 'unaClaveLarga1' };
-        assert.equal((await call('/auth/register', { method: 'POST', body: { ...base, email: LUCIA } })).status, 400);
-        assert.equal((await call('/auth/register', { method: 'POST', body: { ...base, email: 'otro@mail.com', password: 'corta' } })).status, 400);
-        assert.equal((await call('/auth/register', { method: 'POST', body: { ...base, email: 'no-es-email' } })).status, 400);
+    test('rechaza email repetido (409), contraseña corta y email inválido (400)', async () => {
+        const datos = { nombre: 'A', apellido: 'B', password: 'unaClaveLarga1' };
+        assert.equal((await call('/auth/register', { method: 'POST', body: { ...datos, email: LUCIA } })).status, 409);
+        assert.equal((await call('/auth/register', { method: 'POST', body: { ...datos, email: ADMIN } })).status, 409);
+        assert.equal((await call('/auth/register', { method: 'POST', body: { ...datos, email: 'otro@mail.com', password: 'corta' } })).status, 400);
+        assert.equal((await call('/auth/register', { method: 'POST', body: { ...datos, email: 'no-es-email' } })).status, 400);
     });
 });
 
@@ -134,7 +156,7 @@ describe('roles: el socio no accede a lo del admin', () => {
 
     test('el socio no puede editar ni borrar inscripciones ni cuotas por la vía del admin', async () => {
         const { token } = await login(LUCIA);
-        assert.equal((await call('/inscripciones/1', { method: 'PUT', token, body: { estado: 'confirmada' } })).status, 403);
+        assert.equal((await call('/inscripciones/1', { method: 'PUT', token, body: { estado: 'CONFIRMADA' } })).status, 403);
         assert.equal((await call('/inscripciones/1', { method: 'DELETE', token })).status, 403);
         assert.equal((await call('/cuotas/1', { method: 'PUT', token, body: { estado: 'pagada' } })).status, 403);
         assert.equal((await call('/cuotas', { method: 'POST', token, body: { idSocio: 1, periodo: '2026-01', monto: 1, fechaVencimiento: '2026-01-10' } })).status, 403);
@@ -170,11 +192,11 @@ describe('roles: el socio solo ve lo propio', () => {
         const { status, body } = await call('/inscripciones', {
             method: 'POST',
             token: tomas.token,
-            body: { idSocio: 1, idDisciplina: 4, estado: 'confirmada', fechaConfirmacion: '2020-01-01' },
+            body: { idSocio: 1, idDisciplina: 4, estado: 'CONFIRMADA', fechaConfirmacion: '2020-01-01' }
         });
         assert.equal(status, 201);
         assert.equal(body.idSocio, tomas.user.id);
-        assert.equal(body.estado, 'pendiente');
+        assert.equal(body.estado, 'PENDIENTE');
         assert.equal(body.fechaConfirmacion, null);
     });
 
@@ -182,17 +204,33 @@ describe('roles: el socio solo ve lo propio', () => {
         const lucia = await login(LUCIA);
         const admin = await login(ADMIN);
         const todas = await call('/inscripciones', { token: admin.token });
-        const ajena = todas.body.find((i) => i.idSocio !== lucia.user.id && i.estado !== 'baja');
+        const ajena = todas.body.find((i) => i.idSocio !== lucia.user.id && ['PENDIENTE', 'CONFIRMADA'].includes(i.estado));
         assert.equal((await call(`/inscripciones/${ajena.id}/solicitar-baja`, { method: 'POST', token: lucia.token })).status, 404);
     });
 
-    test('el socio puede dar de baja su propia inscripción', async () => {
+    test('pedir la baja de una solicitud PENDIENTE la cancela al instante', async () => {
         const tomas = await login(TOMAS);
         const propias = await call('/inscripciones', { token: tomas.token });
-        const vigente = propias.body.find((i) => i.estado === 'pendiente');
-        const { status, body } = await call(`/inscripciones/${vigente.id}/solicitar-baja`, { method: 'POST', token: tomas.token });
+        const pendiente = propias.body.find((i) => i.estado === 'PENDIENTE');
+        const { status, body } = await call(`/inscripciones/${pendiente.id}/solicitar-baja`, { method: 'POST', token: tomas.token });
         assert.equal(status, 200);
-        assert.equal(body.estado, 'baja');
+        assert.equal(body.estado, 'CANCELADA');
+        assert.equal((await call(`/inscripciones/${pendiente.id}/solicitar-baja`, { method: 'POST', token: tomas.token })).status, 400);
+    });
+
+    test('pedir la baja de una inscripción CONFIRMADA queda en BAJA_PENDIENTE hasta que el admin la finaliza', async () => {
+        const lucia = await login(LUCIA);
+        const confirmada = (await call('/inscripciones', { token: lucia.token })).body.find((i) => i.estado === 'CONFIRMADA');
+        const { status, body } = await call(`/inscripciones/${confirmada.id}/solicitar-baja`, { method: 'POST', token: lucia.token });
+        assert.equal(status, 200);
+        assert.equal(body.estado, 'BAJA_PENDIENTE');
+        assert.ok(body.fechaBajaSolicitada);
+
+        const admin = await login(ADMIN);
+        const finalizada = await call(`/inscripciones/${confirmada.id}`, { method: 'PUT', token: admin.token, body: { estado: 'FINALIZADA' } });
+        assert.equal(finalizada.status, 200);
+        assert.equal(finalizada.body.estado, 'FINALIZADA');
+        assert.ok(finalizada.body.fechaFinEfectiva);
     });
 });
 
@@ -204,8 +242,8 @@ describe('perfil del socio', () => {
             token,
             body: {
                 nombre: 'Lucía', apellido: 'Martínez', telefono: '3415559999', fechaNacimiento: '1995-03-12',
-                email: 'otro@mail.com', rol: 'admin', estado: 'baja', passwordHash: 'x',
-            },
+                email: 'otro@mail.com', rol: 'admin', estado: 'baja', passwordHash: 'x'
+            }
         });
         assert.equal(status, 200);
         assert.equal(body.telefono, '3415559999');
@@ -217,7 +255,7 @@ describe('perfil del socio', () => {
     test('pedir la baja del club la registra y bloquea nuevas inscripciones', async () => {
         const registro = await call('/auth/register', {
             method: 'POST',
-            body: { nombre: 'Baja', apellido: 'Club', email: 'baja.club@mail.com', password: 'unaClaveLarga1' },
+            body: { nombre: 'Baja', apellido: 'Club', email: 'baja.club@mail.com', password: 'unaClaveLarga1' }
         });
         const token = registro.body.token;
         assert.equal((await call('/socios/me/baja', { method: 'POST', token })).status, 200);
@@ -236,7 +274,7 @@ describe('admin conserva el control total', () => {
 
         const creado = await call('/socios', {
             method: 'POST', token,
-            body: { nombre: 'Creado', apellido: 'Admin', email: 'creado.admin@mail.com', password: 'claveInicial1', rol: 'admin' },
+            body: { nombre: 'Creado', apellido: 'Admin', email: 'creado.admin@mail.com', password: 'claveInicial1', rol: 'admin' }
         });
         assert.equal(creado.status, 201);
         assert.equal(creado.body.rol, 'socio');
@@ -247,8 +285,33 @@ describe('admin conserva el control total', () => {
 
     test('puede confirmar una inscripción y registrar un pago', async () => {
         const { token } = await login(ADMIN);
-        assert.equal((await call('/inscripciones/3', { method: 'PUT', token, body: { estado: 'confirmada' } })).status, 200);
-        assert.equal((await call('/cuotas/2', { method: 'PUT', token, body: { estado: 'pagada' } })).status, 200);
+        assert.equal((await call('/inscripciones/3', { method: 'PUT', token, body: { estado: 'CONFIRMADA' } })).status, 200);
+        const pago = await call('/cuotas/2', { method: 'PUT', token, body: { estado: 'pagada' } });
+        assert.equal(pago.status, 200);
+        assert.ok(pago.body.fechaPago);
+    });
+
+    test('las disciplinas aceptan números enviados como texto (formularios) y respetan las reglas de negocio', async () => {
+        const { token } = await login(ADMIN);
+        const creada = await call('/disciplinas', {
+            method: 'POST', token,
+            body: { nombre: 'Tenis de mesa', descripcion: '', cupoMaximo: '12', cuotaMensual: '6000', activa: true }
+        });
+        assert.equal(creada.status, 201);
+        assert.equal(creada.body.cupoMaximo, 12);
+        assert.equal(creada.body.cupoDisponible, 12);
+
+        const duplicada = await call('/disciplinas', {
+            method: 'POST', token, body: { nombre: 'tenis DE mesa', cupoMaximo: 5, cuotaMensual: 100 }
+        });
+        assert.equal(duplicada.status, 409);
+
+        const invalida = await call('/disciplinas', { method: 'POST', token, body: { nombre: 'x', cupoMaximo: 0, cuotaMensual: 100 } });
+        assert.equal(invalida.status, 400);
+
+        // No se elimina una disciplina con inscripciones vigentes
+        assert.equal((await call('/disciplinas/1', { method: 'DELETE', token })).status, 409);
+        assert.equal((await call(`/disciplinas/${creada.body.id}`, { method: 'DELETE', token })).status, 200);
     });
 
     test('el pago online responde 501 con un mensaje claro', async () => {
@@ -269,8 +332,8 @@ describe('datos públicos', () => {
         }
     });
 
-    test('el resto de /public no existe', async () => {
-        assert.equal((await call('/public/socios')).status, 404);
+    test('lo que no está en /public sigue exigiendo sesión', async () => {
+        assert.equal((await call('/public/socios')).status, 401);
     });
 });
 
@@ -284,7 +347,7 @@ describe('no se filtran contraseñas', () => {
             await call('/auth/me', { token: admin.token }),
             await call('/auth/me', { token: lucia.token }),
             await call('/socios/me', { token: lucia.token }),
-            await call('/auth/login', { method: 'POST', body: { email: LUCIA, password: DEMO_PASSWORD } }),
+            await call('/auth/login', { method: 'POST', body: { email: LUCIA, password: DEMO_PASSWORD } })
         ];
         for (const response of responses) {
             assert.doesNotMatch(response.text, /passwordHash|"password"|scrypt\$/i);
