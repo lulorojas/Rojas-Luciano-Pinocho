@@ -1,0 +1,106 @@
+/* Tokens de diseño. Claro por defecto; el modo oscuro sigue la preferencia del sistema. */
+:root {
+    color-scheme: light dark;
+
+    /* Superficies y texto */
+    --color-bg: #f5f5f7;
+    --color-surface: #ffffff;
+    --color-text: #1d1d1f;
+    --color-text-muted: #62626a;
+    --color-border: rgba(0, 0, 0, 0.14);
+    --color-control-border: #86868b; /* >= 3:1 sobre superficie (WCAG 1.4.11) */
+    --color-hairline: rgba(0, 0, 0, 0.07);
+    --color-fill: rgba(120, 120, 128, 0.1);
+    --color-glass: rgba(255, 255, 255, 0.72);
+
+    /* Marca: verde profundo como color interactivo, ámbar como acento */
+    --color-primary: #0c6b4e;
+    --color-primary-hover: #0a5a41;
+    --color-on-primary: #ffffff;
+    --color-primary-tint: rgba(12, 107, 78, 0.1);
+    --color-accent: #f5a30a;
+    --color-accent-tint: rgba(245, 163, 10, 0.2);
+    --color-accent-ink: #8a5a00;
+
+    /* Estados */
+    --color-danger: #b42318;
+    --color-danger-hover: #922017;
+    --color-on-danger: #ffffff;
+    --color-on-status: #ffffff;
+    --color-danger-bg: rgba(217, 45, 32, 0.1);
+    --color-success: #146c43;
+    --color-success-bg: rgba(20, 108, 67, 0.12);
+    --color-warning: #8a5a00;
+    --color-warning-bg: rgba(245, 163, 10, 0.2);
+    --color-info: #1d4e89;
+
+    --color-focus: #0b63ce;
+    --color-focus-ring: rgba(12, 107, 78, 0.28);
+
+    /* Forma y profundidad */
+    --radius-sm: 10px;
+    --radius: 16px;
+    --radius-lg: 22px;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.28);
+
+    --sidebar-width: 260px;
+    --header-height: 72px;
+    --font: system-ui, -apple-system, 'SF Pro Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+    /* Movimiento: ease-out fuerte, UI por debajo de 300 ms */
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --press-duration: 120ms;
+    --enter-duration: 250ms;
+    --exit-duration: 180ms;
+    --motion-reduced-duration: 150ms;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --color-bg: #0b0d0c;
+        --color-surface: #161918;
+        --color-text: #f5f5f7;
+        --color-text-muted: #a3a3ab;
+        --color-border: rgba(255, 255, 255, 0.2);
+        --color-control-border: #7d8081;
+        --color-hairline: rgba(255, 255, 255, 0.09);
+        --color-fill: rgba(255, 255, 255, 0.08);
+        --color-glass: rgba(22, 25, 24, 0.72);
+
+        --color-primary: #3ccf9a;
+        --color-primary-hover: #5ee0b1;
+        --color-on-primary: #04281d;
+        --color-primary-tint: rgba(60, 207, 154, 0.16);
+        --color-accent: #ffb932;
+        --color-accent-tint: rgba(255, 185, 50, 0.18);
+        --color-accent-ink: #ffd36b;
+
+        --color-danger: #ff8a80;
+        --color-danger-hover: #ffa39b;
+        --color-on-danger: #2a0805;
+        --color-on-status: #0b0d0c;
+        --color-danger-bg: rgba(255, 69, 58, 0.18);
+        --color-success: #6fe0a6;
+        --color-success-bg: rgba(52, 199, 89, 0.16);
+        --color-warning: #ffd36b;
+        --color-warning-bg: rgba(255, 185, 50, 0.18);
+        --color-info: #8ab8f5;
+
+        --color-focus: #7db4ff;
+        --color-focus-ring: rgba(60, 207, 154, 0.35);
+
+        --shadow-sm: none;
+        --shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 8px 24px rgba(0, 0, 0, 0.4);
+        --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.7);
+    }
+}
+
+/* Movimiento reducido: las mismas transiciones, pero como fundidos cortos */
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --enter-duration: var(--motion-reduced-duration);
+        --exit-duration: var(--motion-reduced-duration);
+    }
+}

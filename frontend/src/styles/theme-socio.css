@@ -1,0 +1,98 @@
+/*
+ * Tema "socio": cálido, de casa de barrio. Se activa con html[data-theme='socio'] (useThemeScope) y
+ * redefine los tokens base, así que los componentes compartidos (botones, modales, formularios, toasts)
+ * se adaptan solos. El panel de administración conserva su tema neutro.
+ */
+html[data-theme='socio'] {
+    --color-bg: #fbf4e8;
+    --color-surface: #fffaf2;
+    --color-text: #2b2118;
+    --color-text-muted: #6b5846;
+    --color-border: rgba(43, 33, 24, 0.2);
+    --color-control-border: #8c7a68;
+    --color-hairline: rgba(43, 33, 24, 0.09);
+    --color-fill: rgba(139, 105, 70, 0.1);
+    --color-glass: rgba(255, 250, 242, 0.78);
+
+    --color-primary: #0c6b4e;
+    --color-primary-hover: #0a5a41;
+    --color-primary-tint: rgba(12, 107, 78, 0.11);
+    --color-accent: #f5a30a;
+    --color-accent-tint: rgba(245, 163, 10, 0.22);
+    --color-accent-ink: #8a5a00;
+    --color-terracotta: #c4481f;
+    --color-terracotta-tint: rgba(217, 88, 43, 0.12);
+    --color-focus-ring: rgba(12, 107, 78, 0.3);
+
+    --radius-sm: 12px;
+    --radius: 20px;
+    --radius-lg: 28px;
+    --shadow: 0 1px 2px rgba(90, 55, 20, 0.06), 0 14px 34px rgba(120, 70, 20, 0.1);
+    --shadow-lg: 0 24px 60px rgba(70, 40, 10, 0.28);
+
+    --font: 'Nunito Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-display: 'Fraunces Variable', Georgia, 'Times New Roman', serif;
+}
+
+@media (prefers-color-scheme: dark) {
+    html[data-theme='socio'] {
+        --color-bg: #17120d;
+        --color-surface: #221b14;
+        --color-text: #f6ece0;
+        --color-text-muted: #c4b19b;
+        --color-border: rgba(255, 240, 220, 0.22);
+        --color-control-border: #8f806f;
+        --color-hairline: rgba(255, 240, 220, 0.1);
+        --color-fill: rgba(255, 240, 220, 0.07);
+        --color-glass: rgba(34, 27, 20, 0.78);
+
+        --color-primary: #46d4a1;
+        --color-primary-hover: #68e0b5;
+        --color-primary-tint: rgba(70, 212, 161, 0.15);
+        --color-accent: #ffb932;
+        --color-accent-tint: rgba(255, 185, 50, 0.18);
+        --color-accent-ink: #ffd36b;
+        --color-terracotta: #ff9a76;
+        --color-terracotta-tint: rgba(255, 154, 118, 0.16);
+        --color-focus-ring: rgba(70, 212, 161, 0.35);
+
+        --shadow: 0 0 0 1px rgba(255, 240, 220, 0.06), 0 14px 34px rgba(0, 0, 0, 0.45);
+        --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.7);
+    }
+}
+
+html[data-theme='socio'] body {
+    font-size: 1.0625rem;
+    line-height: 1.6;
+}
+
+/* Voz tipográfica: serif suave para títulos, sans redondeada para leer */
+html[data-theme='socio'] h1,
+html[data-theme='socio'] h2,
+html[data-theme='socio'] h3 {
+    font-family: var(--font-display);
+    font-variation-settings: 'SOFT' 100;
+    font-weight: 620;
+}
+
+html[data-theme='socio'] h1 {
+    font-size: clamp(2.25rem, 5vw, 3.5rem);
+    line-height: 1.06;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+}
+
+html[data-theme='socio'] h2 {
+    font-size: clamp(1.5rem, 2.6vw, 1.875rem);
+    line-height: 1.15;
+    letter-spacing: -0.018em;
+}
+
+html[data-theme='socio'] h3 {
+    font-size: 1.25rem;
+    letter-spacing: -0.01em;
+}
+
+html[data-theme='socio'] .muted {
+    color: var(--color-text-muted);
+}

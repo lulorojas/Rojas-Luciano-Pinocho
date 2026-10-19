@@ -1,0 +1,103 @@
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+/* Superficies del navegador temadas con la paleta */
+html {
+    accent-color: var(--color-primary);
+    caret-color: var(--color-primary);
+    scrollbar-color: var(--color-control-border) transparent;
+}
+
+::selection {
+    background: color-mix(in srgb, var(--color-primary) 28%, transparent);
+}
+
+body {
+    margin: 0;
+    font-family: var(--font);
+    font-size: 1rem;
+    line-height: 1.5;
+    letter-spacing: 0;
+    color: var(--color-text);
+    background: var(--color-bg);
+    font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Tracking y leading dependen del tamaño: más cerrado cuanto más grande */
+h1,
+h2,
+h3 {
+    margin: 0 0 0.5rem;
+}
+
+h1 {
+    font-size: clamp(2rem, 4vw, 2.75rem);
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    font-weight: 700;
+}
+
+h2 {
+    font-size: 1.3125rem;
+    line-height: 1.2;
+    letter-spacing: -0.018em;
+    font-weight: 650;
+}
+
+h3 {
+    font-size: 1.0625rem;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+    font-weight: 650;
+}
+
+p {
+    margin: 0 0 0.75rem;
+}
+
+small,
+.badge,
+.field__hint {
+    letter-spacing: 0.01em;
+}
+
+a {
+    color: var(--color-primary);
+}
+
+:focus-visible {
+    outline: 3px solid var(--color-focus);
+    outline-offset: 2px;
+}
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.skip-link {
+    position: absolute;
+    left: 0.75rem;
+    top: -4rem;
+    z-index: 100;
+    padding: 0.65rem 1.1rem;
+    border-radius: 999px;
+    background: var(--color-accent);
+    color: #1b1300;
+    font-weight: 600;
+}
+
+.skip-link:focus {
+    top: 0.75rem;
+}
