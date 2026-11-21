@@ -24,7 +24,7 @@ const PROMISES = [
 const STEPS = [
     ['Creá tu cuenta', 'Lleva un minuto y no pedimos tarjeta. Solo tus datos básicos.'],
     ['Elegí tus disciplinas', 'Mirá horarios, profesores y cuántos lugares quedan, y pedí el tuyo.'],
-    ['Entrená y seguí tu cuota', 'Tu semana y tus cuotas quedan a la vista. El pago online llega muy pronto.'],
+    ['Entrená y seguí tu cuota', 'Tu semana y tus cuotas quedan a la vista, y pagás tu cuota desde la app.'],
 ];
 
 export default function Landing() {
@@ -39,7 +39,7 @@ export default function Landing() {
 
             <header className="landing-header">
                 <Link to="/" className="socio-brand">
-                    <img src={logo} alt="" width="38" height="38" />
+                    <img src={logo} alt="Logo" width="38" height="38" />
                     <span>Club Pinocho</span>
                 </Link>
                 <nav className="landing-header__nav" aria-label="Secciones de la página">

@@ -2,7 +2,7 @@ import ResourcePage from '../components/ResourcePage.jsx';
 import Badge from '../components/ui/Badge.jsx';
 import { getCuotas, createCuota, updateCuota, deleteCuota } from '../services/cuotasService.js';
 import { getSocios } from '../services/sociosService.js';
-import { ESTADOS_CUOTA, toOptions } from '../utils/constants.js';
+import { ESTADOS_CUOTA, MEDIO_PAGO_LABEL, toOptions } from '../utils/constants.js';
 import { formatCurrency, formatDate, formatPeriod, fullName } from '../utils/formatters.js';
 
 const service = {
@@ -22,6 +22,7 @@ const columns = (ctx) => [
     { key: 'monto', header: 'Monto', align: 'right', sortBy: 'raw', render: (item) => formatCurrency(item.monto) },
     { key: 'fechaVencimiento', header: 'Vence', sortBy: 'raw', render: (item) => formatDate(item.fechaVencimiento) },
     { key: 'fechaPago', header: 'Pagada el', sortBy: 'raw', render: (item) => formatDate(item.fechaPago) },
+    { key: 'medioPago', header: 'Medio de pago', render: (item) => MEDIO_PAGO_LABEL[item.medioPago] ?? '—' },
     { key: 'estado', header: 'Estado', render: (item) => <Badge>{item.estado}</Badge> },
 ];
 

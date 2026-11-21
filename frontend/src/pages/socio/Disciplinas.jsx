@@ -10,7 +10,7 @@ import { useDialog } from '../../hooks/useDialog.js';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
 import { useMiClub } from '../../hooks/useMiClub.js';
 import { useToast } from '../../hooks/useToast.js';
-import { requestEnrollment } from '../../services/miClubService.js';
+import { getSuperposiciones, requestEnrollment } from '../../services/miClubService.js';
 import { DIAS_SEMANA } from '../../utils/constants.js';
 
 const STAGGER_MS = 50;
@@ -22,6 +22,8 @@ export default function Disciplinas() {
     const detail = useDialog();
     const [day, setDay] = useState('');
     const [busy, setBusy] = useState(false);
+    // Disciplinas del socio que se pisan con la elegida; null = todavía no se consultó
+    const [aviso, setAviso] = useState(null);
     const [celebrating, setCelebrating] = useState(false);
 
     const activas = club.disciplinas.filter((disciplina) => disciplina.activa);
@@ -38,6 +40,14 @@ export default function Disciplinas() {
     const enroll = async () => {
         setBusy(true);
         try {
+            // Primer intento: si hay horarios que se pisan se avisa y el socio decide si sigue
+            if (aviso === null) {
+                const conflictos = await getSuperposiciones(selected.id);
+                if (conflictos.length > 0) {
+                    setAviso(conflictos);
+                    return;
+                }
+            }
             await requestEnrollment(selected.id);
             club.reload();
             detail.hide();
@@ -97,9 +107,13 @@ export default function Disciplinas() {
                     inscripcion={club.inscripcionVigente(selected.id)}
                     open={detail.open}
                     busy={busy}
+                    aviso={aviso}
                     onEnroll={enroll}
                     onClose={detail.hide}
-                    onExited={detail.reset}
+                    onExited={() => {
+                        setAviso(null);
+                        detail.reset();
+                    }}
                 />
             )}
 

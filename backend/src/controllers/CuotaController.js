@@ -25,10 +25,15 @@ function remove(req, res) {
     return successResponse(res, null);
 }
 
+function pagar(req, res) {
+    return successResponse(res, CuotaService.pagar(req.user, Number(req.params.id), req.body));
+}
+
 export default {
     getAll,
     getById,
     create,
     update,
-    remove
+    remove,
+    pagar
 };

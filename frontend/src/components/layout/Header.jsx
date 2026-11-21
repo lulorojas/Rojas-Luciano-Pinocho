@@ -5,7 +5,7 @@ export default function Header({ menuOpen, onToggleMenu }) {
     return (
         <header className="header">
             <Link to="/admin" className="header__brand">
-                <img src={logo} alt="" width="36" height="36" />
+                <img src={logo} alt="Logo" width="36" height="36" />
                 <span>Club Pinocho</span>
             </Link>
             <button

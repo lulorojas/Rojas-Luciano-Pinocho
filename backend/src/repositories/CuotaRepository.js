@@ -27,13 +27,22 @@ function findBySocio(idSocio) {
     return cuotas.filter((cuota) => cuota.idSocio === idSocio);
 }
 
-function create({ idSocio, periodo, monto, fechaVencimiento, fechaPago, estado }) {
-    const nuevaCuota = new Cuota(nextId++, idSocio, periodo, monto, fechaVencimiento, fechaPago ?? null, estado);
+function create({ idSocio, periodo, monto, fechaVencimiento, fechaPago, estado, medioPago }) {
+    const nuevaCuota = new Cuota(
+        nextId++,
+        idSocio,
+        periodo,
+        monto,
+        fechaVencimiento,
+        fechaPago ?? null,
+        estado,
+        medioPago ?? null
+    );
     cuotas.push(nuevaCuota);
     return nuevaCuota;
 }
 
-function update(id, { idSocio, periodo, monto, fechaVencimiento, fechaPago, estado }) {
+function update(id, { idSocio, periodo, monto, fechaVencimiento, fechaPago, estado, medioPago }) {
     const cuota = findById(id);
     if (!cuota) {
         return null;
@@ -44,6 +53,7 @@ function update(id, { idSocio, periodo, monto, fechaVencimiento, fechaPago, esta
     cuota.fechaVencimiento = fechaVencimiento;
     cuota.fechaPago = fechaPago ?? null;
     cuota.estado = estado;
+    cuota.medioPago = medioPago ?? null;
     return cuota;
 }
 

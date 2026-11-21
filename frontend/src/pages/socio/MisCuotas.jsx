@@ -1,12 +1,15 @@
+import { useState } from 'react';
 import PageIntro from '../../components/socio/PageIntro.jsx';
 import CuotaCard from '../../components/socio/CuotaCard.jsx';
 import PagoModal from '../../components/socio/PagoModal.jsx';
 import Reveal from '../../components/socio/Reveal.jsx';
 import { RelaxArt } from '../../assets/illustrations/EmptyArt.jsx';
 import { useDialog } from '../../hooks/useDialog.js';
+import { useToast } from '../../hooks/useToast.js';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
 import { useMiClub } from '../../hooks/useMiClub.js';
 import { useNow } from '../../hooks/useNow.js';
+import { payCuota } from '../../services/miClubService.js';
 import { formatCurrency } from '../../utils/formatters.js';
 
 const byDueDate = (a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento);
@@ -15,11 +18,27 @@ export default function MisCuotas() {
     useDocumentTitle('Mis cuotas');
     const club = useMiClub();
     const now = useNow();
+    const toast = useToast();
     const pago = useDialog();
+    const [busy, setBusy] = useState(false);
 
     const porPagar = club.cuotas.filter((cuota) => cuota.estado !== 'pagada').sort(byDueDate);
     const pagadas = club.cuotas.filter((cuota) => cuota.estado === 'pagada').sort((a, b) => byDueDate(b, a));
     const total = porPagar.reduce((sum, cuota) => sum + cuota.monto, 0);
+
+    const pagar = async (medioPago) => {
+        setBusy(true);
+        try {
+            await payCuota(pago.target.id, medioPago);
+            club.reload();
+            pago.hide();
+            toast.success('¡Pago registrado! Tu cuota ya figura como pagada.');
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setBusy(false);
+        }
+    };
 
     return (
         <>
@@ -68,13 +87,22 @@ export default function MisCuotas() {
             <details className="help-box">
                 <summary>¿Cómo pago mi cuota?</summary>
                 <p>
-                    El pago online está en camino y vas a poder hacerlo desde el botón <strong>Pagar</strong>.
-                    Mientras tanto, acercate a la administración del club: te registramos el pago en el momento
-                    y la cuota pasa a “Pagada” en esta pantalla.
+                    Tocá el botón <strong>Pagar</strong> de la cuota, elegí cómo querés pagar y confirmá. El pago
+                    queda registrado al instante y la cuota pasa a “Pagada” en esta pantalla. Si preferís, también
+                    podés acercarte a la administración del club.
                 </p>
             </details>
 
-            {pago.target && <PagoModal cuota={pago.target} open={pago.open} onClose={pago.hide} onExited={pago.reset} />}
+            {pago.target && (
+                <PagoModal
+                    cuota={pago.target}
+                    open={pago.open}
+                    busy={busy}
+                    onConfirm={pagar}
+                    onClose={pago.hide}
+                    onExited={pago.reset}
+                />
+            )}
         </>
     );
 }

@@ -51,13 +51,35 @@ Los permisos se aplican en el servidor (`requireAuth` + `requireRole` en las rut
 | `/disciplinas`, `/horarios`, `/profesores` | 401 | solo lectura (disciplinas con `cupoDisponible`; profesores sin teléfono) | CRUD |
 | `/socios` | 401 | 403 | CRUD (alta con contraseña inicial) |
 | `/socios/me` | 401 | ver y editar su perfil (campos permitidos), `POST /me/baja` | 403 |
-| `/inscripciones` | 401 | ve solo las propias; crea siempre como `PENDIENTE`; `POST /:id/solicitar-baja` | CRUD |
-| `/cuotas` | 401 | ve solo las propias | CRUD |
-| `POST /pagos/intentos` | 401 | 501 (todavía no disponible) | 501 |
+| `/inscripciones` | 401 | ve solo las propias; crea siempre como `PENDIENTE`; `POST /:id/solicitar-baja`; `GET /superposiciones?idDisciplina=` | CRUD |
+| `/cuotas` | 401 | ve solo las propias; `POST /:id/pagar` | CRUD |
 
 ### Ciclo de una inscripción
 
 `PENDIENTE` → el admin confirma → `CONFIRMADA`. Si el socio pide la baja: una solicitud `PENDIENTE` pasa a `CANCELADA` al instante y una `CONFIRMADA` pasa a `BAJA_PENDIENTE` hasta que el admin la finaliza (`FINALIZADA`). Solo ocupan cupo las inscripciones que no están `FINALIZADA` ni `CANCELADA`.
+
+## Reglas de negocio
+
+Todas se validan en los services (el frontend solo las muestra). Los errores salen con el formato `{ success: false, message }` y su código HTTP.
+
+| Regla | Dónde | Error |
+|---|---|---|
+| Datos obligatorios y con formato válido en todas las entidades | services | 400 |
+| Registros duplicados: email de socio, nombre de disciplina, inscripción activa del mismo socio en la misma disciplina, **cuota del mismo socio y período** | services | 409 |
+| Cupo máximo de cada disciplina | `InscripcionService` | 409 |
+| **Un profesor no puede dar dos clases a la vez** (mismo día y horarios que se pisan; una a continuación de la otra sí) | `HorarioService` | 409 |
+| **Un socio con cuotas vencidas no puede inscribirse** (cuota `vencida`, o no pagada y pasada de fecha) | `InscripcionService` | 409 |
+| **Un socio de baja no puede inscribirse ni pagar cuotas** (sí ver su historial) | `InscripcionService`, `CuotaService` | 400 |
+| No se eliminan disciplinas con inscripciones vigentes, profesores con horarios ni socios con registros | services | 409 |
+| Recursos inexistentes, o ajenos para un socio | services | 404 |
+
+### Pago de una cuota — `POST /api/cuotas/:id/pagar` (socio)
+
+Body `{ "medioPago": "tarjeta" | "transferencia" | "billetera" }`. El servidor valida que la cuota sea del socio (si no, 404), que no esté pagada (409) y que el medio sea válido (400); el importe sale de la cuota. La marca `pagada` con la fecha de hoy y el medio elegido. No se manejan datos de tarjeta.
+
+### Aviso de superposición — `GET /api/inscripciones/superposiciones?idDisciplina=`
+
+Devuelve `[{ idDisciplina, disciplina, franjas: [{ diaSemana, horaInicio, horaFin }] }]` con las disciplinas vigentes del socio cuyo horario se pisa con la elegida. Es solo un aviso: el socio puede inscribirse igual.
 
 ## Seguridad
 

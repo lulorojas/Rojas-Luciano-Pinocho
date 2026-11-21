@@ -39,7 +39,7 @@ export default function SocioLayout() {
             <a className="skip-link" href="#contenido">Saltar al contenido</a>
             <header className="socio-header">
                 <Link to="/socio" className="socio-brand">
-                    <img src={logo} alt="" width="38" height="38" />
+                    <img src={logo} alt="Logo" width="38" height="38" />
                     <span>Club Pinocho</span>
                 </Link>
                 <nav className="socio-nav" aria-label="Secciones">

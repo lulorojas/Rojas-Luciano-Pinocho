@@ -22,6 +22,11 @@ function create(req, res) {
     return successResponse(res, inscripcion, 201);
 }
 
+function superposiciones(req, res) {
+    const idDisciplina = req.query.idDisciplina === undefined ? undefined : Number(req.query.idDisciplina);
+    return successResponse(res, InscripcionService.superposiciones(req.user, idDisciplina));
+}
+
 function update(req, res) {
     return successResponse(res, InscripcionService.update(Number(req.params.id), req.body));
 }
@@ -41,5 +46,6 @@ export default {
     create,
     update,
     remove,
-    solicitarBaja
+    solicitarBaja,
+    superposiciones
 };

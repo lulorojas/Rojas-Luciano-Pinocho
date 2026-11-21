@@ -1181,7 +1181,13 @@
     gap: 0.5rem;
     margin: 0;
     padding: 0;
-    list-style: none;
+    border: 0;
+}
+
+.pago__methods legend {
+    margin-bottom: 0.5rem;
+    padding: 0;
+    font-weight: 800;
 }
 
 .pago__method {
@@ -1190,17 +1196,50 @@
     gap: 0.75rem;
     width: 100%;
     padding: 0.8rem 1rem;
-    border: 1.5px dashed var(--color-control-border);
+    border: 1.5px solid var(--color-control-border);
     border-radius: var(--radius-sm);
     background: transparent;
-    color: var(--color-text-muted);
+    color: var(--color-text);
     font: inherit;
     font-weight: 700;
     text-align: left;
+    cursor: pointer;
 }
 
-.pago__method span:nth-child(2) {
+.pago__method input {
+    accent-color: var(--color-primary);
+}
+
+.pago__method:has(input:checked) {
+    border-color: var(--color-primary);
+    background: var(--color-primary-tint);
+}
+
+.pago__method:has(input:focus-visible) {
+    outline: 3px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.pago__method span {
     flex: 1;
+}
+
+.aviso {
+    margin: 0;
+    padding: 0.85rem 1.1rem;
+    border-radius: var(--radius-sm);
+    background: var(--color-accent-tint);
+    color: var(--color-accent-ink);
+}
+
+.aviso strong {
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.aviso ul {
+    margin: 0.25rem 0 0;
+    padding-left: 1.2rem;
 }
 
 /* ---------- Perfil ---------- */

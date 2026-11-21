@@ -9,6 +9,8 @@ import { Roles } from '../enums/Roles.js';
 const router = Router();
 
 router.get('/', InscripcionController.getAll);
+// Va antes de /:id para que "superposiciones" no se tome como un id
+router.get('/superposiciones', requireRole(Roles.SOCIO), InscripcionController.superposiciones);
 router.get('/:id', InscripcionController.getById);
 router.post('/', InscripcionController.create);
 router.post('/:id/solicitar-baja', requireRole(Roles.SOCIO), InscripcionController.solicitarBaja);

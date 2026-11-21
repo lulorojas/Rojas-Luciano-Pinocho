@@ -18,6 +18,7 @@ export default function DisciplineModal({
     inscripcion,
     open,
     busy,
+    aviso,
     onEnroll,
     onClose,
     onExited,
@@ -39,7 +40,7 @@ export default function DisciplineModal({
                     <Button variant="ghost" onClick={onClose} disabled={busy}>Cerrar</Button>
                     {!inscripcion && (
                         <Button onClick={onEnroll} loading={busy} disabled={sinCupo} data-autofocus={sinCupo ? undefined : ''}>
-                            {sinCupo ? 'Sin cupo por ahora' : 'Solicitar mi lugar'}
+                            {sinCupo ? 'Sin cupo por ahora' : aviso ? 'Inscribirme igual' : 'Solicitar mi lugar'}
                         </Button>
                     )}
                 </>
@@ -76,6 +77,21 @@ export default function DisciplineModal({
                         <p className="price price--lg">{formatCurrency(disciplina.cuotaMensual)} <small>por mes</small></p>
                     </div>
                 </div>
+
+                {aviso && !inscripcion && (
+                    <div className="aviso" role="alert">
+                        <strong>Ojo: esta disciplina se pisa con otra en la que ya estás inscripto/a.</strong>
+                        <ul>
+                            {aviso.map((conflicto) => (
+                                <li key={conflicto.idDisciplina}>
+                                    {conflicto.disciplina}:{' '}
+                                    {conflicto.franjas.map((franja) => `${franja.diaSemana} ${franja.horaInicio} a ${franja.horaFin}`).join(', ')}
+                                </li>
+                            ))}
+                        </ul>
+                        Si igual querés pedir tu lugar, tocá “Inscribirme igual”.
+                    </div>
+                )}
 
                 {inscripcion ? (
                     <EnrollmentSteps estado={inscripcion.estado} />

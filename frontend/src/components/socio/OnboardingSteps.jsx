@@ -32,7 +32,7 @@ export default function OnboardingSteps() {
                         <span className="onboarding__dot" aria-hidden="true">3</span>
                         <div>
                             <h3>Pagá tu cuota</h3>
-                            <p>Muy pronto vas a poder hacerlo desde acá. Mientras tanto, lo registramos en la administración.</p>
+                            <p>Cuando el club confirme tu lugar, vas a poder pagar tu cuota desde acá, en la sección Mis cuotas.</p>
                         </div>
                     </li>
                 </ol>

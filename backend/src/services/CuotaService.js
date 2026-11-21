@@ -5,12 +5,15 @@ import CuotaRepository from '../repositories/CuotaRepository.js';
 import SocioService from './SocioService.js';
 import BadRequestError from '../exceptions/BadRequestError.js';
 import NotFoundError from '../exceptions/NotFoundError.js';
+import ConflictError from '../exceptions/ConflictError.js';
 import { Messages } from '../enums/Messages.js';
 import { Roles } from '../enums/Roles.js';
 import { EstadoCuota } from '../enums/EstadoCuota.js';
+import { EstadoSocio } from '../enums/EstadoSocio.js';
+import { MediosPago } from '../enums/MediosPago.js';
 import { isBlank, isPeriodo, isPositiveNumber, toNumberIfNumeric, todayIso } from '../utils/validators.js';
 
-function validarDatos({ idSocio, periodo, monto, fechaVencimiento, estado }) {
+function validarDatos({ idSocio, periodo, monto, fechaVencimiento, estado }, idActual = null) {
     if ([idSocio, periodo, monto, fechaVencimiento].some(isBlank)) {
         throw new BadRequestError(Messages.CUOTA_DATOS_REQUIRED);
     }
@@ -24,6 +27,13 @@ function validarDatos({ idSocio, periodo, monto, fechaVencimiento, estado }) {
     if (!Object.values(EstadoCuota).includes(estado)) {
         throw new BadRequestError(Messages.ESTADO_CUOTA_INVALID);
     }
+    // Un socio tiene una sola cuota por período
+    const yaTieneCuota = CuotaRepository.findBySocio(idSocio).some(
+        (cuota) => cuota.periodo === periodo && cuota.id !== idActual
+    );
+    if (yaTieneCuota) {
+        throw new ConflictError(Messages.CUOTA_DUPLICADA);
+    }
 }
 
 function normalizarDatos(datos = {}) {
@@ -35,6 +45,8 @@ function normalizarDatos(datos = {}) {
         fechaVencimiento: datos.fechaVencimiento,
         // Una cuota pagada siempre tiene fecha de pago; el resto, ninguna
         fechaPago: estado === EstadoCuota.PAGADA ? datos.fechaPago ?? todayIso() : null,
+        // El medio de pago solo tiene sentido en una cuota pagada
+        medioPago: estado === EstadoCuota.PAGADA ? datos.medioPago ?? null : null,
         estado
     };
 }
@@ -72,8 +84,41 @@ function create(datosCrudos) {
 function update(id, datosCrudos) {
     const actual = getEntidad(id);
     const datos = normalizarDatos({ ...actual, ...datosCrudos });
-    validarDatos(datos);
+    validarDatos(datos, id);
     return CuotaRepository.update(id, datos);
+}
+
+// Una cuota está vencida si el administrador la marcó así o si no se pagó y ya pasó su fecha.
+function estaVencida(cuota) {
+    if (cuota.estado === EstadoCuota.PAGADA) {
+        return false;
+    }
+    return cuota.estado === EstadoCuota.VENCIDA || cuota.fechaVencimiento < todayIso();
+}
+
+function tieneCuotasVencidas(idSocio) {
+    return CuotaRepository.findBySocio(idSocio).some(estaVencida);
+}
+
+// Pago de una cuota por el propio socio. El servidor decide el estado, la fecha y el importe
+// (que ya está en la cuota): del cliente solo se acepta el medio de pago.
+function pagar(usuario, id, { medioPago } = {}) {
+    if (usuario.estado === EstadoSocio.BAJA) {
+        throw new BadRequestError(Messages.SOCIO_DE_BAJA);
+    }
+    const cuota = getById(id, usuario);
+    if (cuota.estado === EstadoCuota.PAGADA) {
+        throw new ConflictError(Messages.CUOTA_YA_PAGADA);
+    }
+    if (!Object.values(MediosPago).includes(medioPago)) {
+        throw new BadRequestError(Messages.MEDIO_PAGO_INVALID);
+    }
+    return CuotaRepository.update(id, {
+        ...cuota,
+        estado: EstadoCuota.PAGADA,
+        fechaPago: todayIso(),
+        medioPago
+    });
 }
 
 function remove(id) {
@@ -86,5 +131,7 @@ export default {
     getById,
     create,
     update,
-    remove
+    remove,
+    pagar,
+    tieneCuotasVencidas
 };

@@ -56,8 +56,8 @@ export function RelaxArt() {
     );
 }
 
-/** Pagos online próximamente */
-export function PaymentSoonArt() {
+/** Pago de una cuota */
+export function PaymentArt() {
     return (
         <Frame>
             <circle cx="100" cy="80" r="60" fill="#f5a30a" opacity="0.2" />

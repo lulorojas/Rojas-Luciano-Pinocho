@@ -11,7 +11,6 @@ import horarioRoutes from './horarioRoutes.js';
 import socioRoutes from './socioRoutes.js';
 import inscripcionRoutes from './inscripcionRoutes.js';
 import cuotaRoutes from './cuotaRoutes.js';
-import pagoRoutes from './pagoRoutes.js';
 import { requireAuth } from '../middlewares/auth.js';
 
 const router = Router();
@@ -27,6 +26,5 @@ router.use('/horarios', horarioRoutes);
 router.use('/socios', socioRoutes);
 router.use('/inscripciones', inscripcionRoutes);
 router.use('/cuotas', cuotaRoutes);
-router.use('/pagos', pagoRoutes);
 
 export default router;

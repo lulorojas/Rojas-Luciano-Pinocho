@@ -1,53 +1,22 @@
 import { after, before, describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createApp } from '../src/app.js';
+import { iniciarServidor, detenerServidor, call, login, baseUrl } from './helpers.js';
 import { createToken } from '../src/security/tokens.js';
 import { DEMO_PASSWORD } from '../src/security/demoPassword.js';
 
-let server;
-let base;
-
-before(async () => {
-    server = createApp().listen(0);
-    await new Promise((resolve) => server.once('listening', resolve));
-    base = `http://localhost:${server.address().port}/api`;
-});
-
-after(() => new Promise((resolve) => server.close(resolve)));
-
-// Las respuestas de la API tienen el formato { success, data } o { success: false, message }.
-// Acá `body` es `data` si salió bien, o el objeto completo (con `message`) si falló.
-async function call(path, { method = 'GET', token, body } = {}) {
-    const response = await fetch(`${base}${path}`, {
-        method,
-        headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: body === undefined ? undefined : JSON.stringify(body)
-    });
-    const text = await response.text();
-    const parsed = text ? JSON.parse(text) : null;
-    return { status: response.status, body: parsed?.success ? parsed.data : parsed, text };
-}
-
-async function login(email, password = DEMO_PASSWORD) {
-    const { status, body } = await call('/auth/login', { method: 'POST', body: { email, password } });
-    assert.equal(status, 200, `login de ${email} debería funcionar`);
-    return body;
-}
+before(iniciarServidor);
+after(detenerServidor);
 
 const ADMIN = 'admin@pinocho.test';
 const LUCIA = 'lucia@mail.com'; // socio 1
-const TOMAS = 'tomas@mail.com'; // socio 2
 
 describe('formato de respuesta', () => {
     test('éxito: { success: true, data } · error: { success: false, message }', async () => {
-        const ok = await fetch(`${base}/public/disciplinas`).then((response) => response.json());
+        const ok = await fetch(`${baseUrl()}/public/disciplinas`).then((response) => response.json());
         assert.equal(ok.success, true);
         assert.ok(Array.isArray(ok.data));
 
-        const error = await fetch(`${base}/socios`).then((response) => response.json());
+        const error = await fetch(`${baseUrl()}/socios`).then((response) => response.json());
         assert.equal(error.success, false);
         assert.equal(typeof error.message, 'string');
     });
@@ -188,14 +157,14 @@ describe('roles: el socio solo ve lo propio', () => {
     });
 
     test('al inscribirse, idSocio y estado los fija el servidor', async () => {
-        const tomas = await login(TOMAS);
+        const lucia = await login(LUCIA);
         const { status, body } = await call('/inscripciones', {
             method: 'POST',
-            token: tomas.token,
-            body: { idSocio: 1, idDisciplina: 4, estado: 'CONFIRMADA', fechaConfirmacion: '2020-01-01' }
+            token: lucia.token,
+            body: { idSocio: 2, idDisciplina: 4, estado: 'CONFIRMADA', fechaConfirmacion: '2020-01-01' }
         });
         assert.equal(status, 201);
-        assert.equal(body.idSocio, tomas.user.id);
+        assert.equal(body.idSocio, lucia.user.id);
         assert.equal(body.estado, 'PENDIENTE');
         assert.equal(body.fechaConfirmacion, null);
     });
@@ -209,13 +178,13 @@ describe('roles: el socio solo ve lo propio', () => {
     });
 
     test('pedir la baja de una solicitud PENDIENTE la cancela al instante', async () => {
-        const tomas = await login(TOMAS);
-        const propias = await call('/inscripciones', { token: tomas.token });
+        const lucia = await login(LUCIA);
+        const propias = await call('/inscripciones', { token: lucia.token });
         const pendiente = propias.body.find((i) => i.estado === 'PENDIENTE');
-        const { status, body } = await call(`/inscripciones/${pendiente.id}/solicitar-baja`, { method: 'POST', token: tomas.token });
+        const { status, body } = await call(`/inscripciones/${pendiente.id}/solicitar-baja`, { method: 'POST', token: lucia.token });
         assert.equal(status, 200);
         assert.equal(body.estado, 'CANCELADA');
-        assert.equal((await call(`/inscripciones/${pendiente.id}/solicitar-baja`, { method: 'POST', token: tomas.token })).status, 400);
+        assert.equal((await call(`/inscripciones/${pendiente.id}/solicitar-baja`, { method: 'POST', token: lucia.token })).status, 400);
     });
 
     test('pedir la baja de una inscripción CONFIRMADA queda en BAJA_PENDIENTE hasta que el admin la finaliza', async () => {
@@ -312,13 +281,6 @@ describe('admin conserva el control total', () => {
         // No se elimina una disciplina con inscripciones vigentes
         assert.equal((await call('/disciplinas/1', { method: 'DELETE', token })).status, 409);
         assert.equal((await call(`/disciplinas/${creada.body.id}`, { method: 'DELETE', token })).status, 200);
-    });
-
-    test('el pago online responde 501 con un mensaje claro', async () => {
-        const { token } = await login(LUCIA);
-        const { status, body } = await call('/pagos/intentos', { method: 'POST', token, body: { idCuota: 1 } });
-        assert.equal(status, 501);
-        assert.match(body.message, /pronto/i);
     });
 });
 

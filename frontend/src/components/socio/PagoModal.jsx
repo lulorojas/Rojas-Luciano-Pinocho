@@ -1,49 +1,57 @@
+import { useState } from 'react';
 import Modal from '../ui/Modal.jsx';
 import Button from '../ui/Button.jsx';
 import Icon from '../ui/Icon.jsx';
-import { PaymentSoonArt } from '../../assets/illustrations/EmptyArt.jsx';
+import { PaymentArt } from '../../assets/illustrations/EmptyArt.jsx';
+import { MEDIOS_PAGO } from '../../utils/constants.js';
 import { formatCurrency, formatPeriodLong } from '../../utils/formatters.js';
 
-const METHODS = [
-    { id: 'tarjeta', label: 'Tarjeta de crédito o débito', icon: 'card' },
-    { id: 'transferencia', label: 'Transferencia bancaria', icon: 'arrow' },
-    { id: 'billetera', label: 'Billetera virtual', icon: 'lock' },
-];
-
 /**
- * Pantalla de pago. Todavía NO funciona: muestra las formas de pago previstas deshabilitadas y
- * explica qué hacer mientras tanto. No pide ningún dato de tarjeta ni de cuenta.
+ * Pago de una cuota: el socio elige el medio y confirma. El importe lo fija la cuota en el servidor.
+ * No pide datos de tarjeta ni de cuenta; la página que lo usa llama a la API en `onConfirm(medioPago)`.
  */
-export default function PagoModal({ cuota, open, onClose, onExited }) {
+export default function PagoModal({ cuota, open, busy, onConfirm, onClose, onExited }) {
+    const [medio, setMedio] = useState('');
+
     return (
         <Modal
             title="Pagar mi cuota"
             open={open}
+            dismissible={!busy}
             onClose={onClose}
             onExited={onExited}
-            footer={<Button onClick={onClose} data-autofocus>Entendido</Button>}
+            footer={(
+                <>
+                    <Button variant="ghost" onClick={onClose} disabled={busy}>Cancelar</Button>
+                    <Button onClick={() => onConfirm(medio)} loading={busy} disabled={!medio}>
+                        Confirmar pago
+                    </Button>
+                </>
+            )}
         >
             <div className="pago">
-                <PaymentSoonArt />
+                <PaymentArt />
                 <p className="pago__summary">
                     <span>{formatPeriodLong(cuota.periodo)}</span>
                     <strong>{formatCurrency(cuota.monto)}</strong>
                 </p>
-                <p className="pago__lead">
-                    Estamos terminando de conectar los pagos online. Mientras tanto, acercate a la administración
-                    del club y te registramos el pago en el momento.
-                </p>
-                <ul className="pago__methods" aria-label="Formas de pago previstas">
-                    {METHODS.map((method) => (
-                        <li key={method.id}>
-                            <button type="button" className="pago__method" disabled>
-                                <Icon name={method.icon} size={20} />
-                                <span>{method.label}</span>
-                                <span className="status-pill status-pill--soon">Próximamente</span>
-                            </button>
-                        </li>
+                <fieldset className="pago__methods" disabled={busy}>
+                    <legend>¿Cómo querés pagar?</legend>
+                    {MEDIOS_PAGO.map((metodo, index) => (
+                        <label key={metodo.id} className="pago__method">
+                            <input
+                                type="radio"
+                                name="medioPago"
+                                value={metodo.id}
+                                checked={medio === metodo.id}
+                                onChange={() => setMedio(metodo.id)}
+                                data-autofocus={index === 0 ? '' : undefined}
+                            />
+                            <Icon name={metodo.icon} size={20} />
+                            <span>{metodo.label}</span>
+                        </label>
                     ))}
-                </ul>
+                </fieldset>
             </div>
         </Modal>
     );

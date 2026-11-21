@@ -1,6 +1,14 @@
 export const DIAS_SEMANA = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
 
 export const ESTADOS_SOCIO = ['activo', 'baja'];
+// Medios de pago (mismos valores que MediosPago del backend)
+export const MEDIOS_PAGO = [
+    { id: 'tarjeta', label: 'Tarjeta de crédito o débito', icon: 'card' },
+    { id: 'transferencia', label: 'Transferencia bancaria', icon: 'arrow' },
+    { id: 'billetera', label: 'Billetera virtual', icon: 'lock' },
+];
+export const MEDIO_PAGO_LABEL = Object.fromEntries(MEDIOS_PAGO.map((medio) => [medio.id, medio.label]));
+
 export const ESTADOS_CUOTA = ['pendiente', 'pagada', 'vencida'];
 
 // Estados de una inscripción (mismos valores que el enum EstadoInscripcion del backend)

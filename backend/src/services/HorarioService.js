@@ -5,11 +5,13 @@ import DisciplinaService from './DisciplinaService.js';
 import ProfesorService from './ProfesorService.js';
 import BadRequestError from '../exceptions/BadRequestError.js';
 import NotFoundError from '../exceptions/NotFoundError.js';
+import ConflictError from '../exceptions/ConflictError.js';
 import { Messages } from '../enums/Messages.js';
 import { DIAS_SEMANA } from '../enums/Dias.js';
 import { isBlank, isHora } from '../utils/validators.js';
+import { rangosSeSuperponen } from '../utils/horarios.js';
 
-function validarDatos({ idDisciplina, idProfesor, diaSemana, horaInicio, horaFin }) {
+function validarDatos({ idDisciplina, idProfesor, diaSemana, horaInicio, horaFin }, idActual = null) {
     if ([idDisciplina, idProfesor, diaSemana, horaInicio, horaFin].some(isBlank)) {
         throw new BadRequestError(Messages.HORARIO_DATOS_REQUIRED);
     }
@@ -25,6 +27,17 @@ function validarDatos({ idDisciplina, idProfesor, diaSemana, horaInicio, horaFin
     }
     if (horaFin <= horaInicio) {
         throw new BadRequestError(Messages.HORA_FIN_INVALID);
+    }
+    // Un profesor no puede dar dos clases al mismo tiempo
+    const profesorOcupado = HorarioRepository.findAll().some(
+        (horario) =>
+            horario.id !== idActual &&
+            horario.idProfesor === idProfesor &&
+            horario.diaSemana === diaSemana &&
+            rangosSeSuperponen(horario.horaInicio, horario.horaFin, horaInicio, horaFin)
+    );
+    if (profesorOcupado) {
+        throw new ConflictError(Messages.HORARIO_PROFESOR_SUPERPUESTO);
     }
 }
 
@@ -63,7 +76,7 @@ function create(datosCrudos) {
 function update(id, datosCrudos) {
     const actual = getEntidad(id);
     const datos = normalizarDatos({ ...actual, ...datosCrudos });
-    validarDatos(datos);
+    validarDatos(datos, id);
     return HorarioRepository.update(id, datos);
 }
 

@@ -23,6 +23,7 @@ export const Messages = Object.freeze({
     DIA_INVALID: "El día debe ser uno de: Lunes a Domingo.",
     HORA_INVALID: "Las horas deben tener formato HH:MM.",
     HORA_FIN_INVALID: "La hora de fin debe ser posterior a la de inicio.",
+    HORARIO_PROFESOR_SUPERPUESTO: "El profesor ya tiene otra clase en ese día y horario.",
 
     // Socio
     SOCIO_NOT_FOUND: "El socio no existe.",
@@ -41,6 +42,9 @@ export const Messages = Object.freeze({
     SIN_CUPO: "No hay cupo disponible en esta disciplina.",
     INSCRIPCION_DUPLICADA: "El socio ya está inscripto en esta disciplina.",
     INSCRIPCION_YA_CERRADA: "Esta inscripción ya está finalizada o con una baja en trámite.",
+    SOCIO_DE_BAJA: "El socio está dado de baja: no puede inscribirse ni pagar cuotas.",
+    SOCIO_MOROSO: "Tenés cuotas vencidas. Pagalas para poder inscribirte a una disciplina nueva.",
+    SOCIO_MOROSO_ADMIN: "El socio tiene cuotas vencidas: tiene que ponerse al día para inscribirse.",
 
     // Cuota
     CUOTA_NOT_FOUND: "La cuota no existe.",
@@ -48,6 +52,9 @@ export const Messages = Object.freeze({
     PERIODO_INVALID: "El período debe tener formato AAAA-MM.",
     MONTO_INVALID: "El monto debe ser un número mayor a cero.",
     ESTADO_CUOTA_INVALID: "El estado de la cuota no es válido.",
+    CUOTA_DUPLICADA: "El socio ya tiene una cuota para ese período.",
+    CUOTA_YA_PAGADA: "Esta cuota ya está pagada.",
+    MEDIO_PAGO_INVALID: "Elegí un medio de pago válido: tarjeta, transferencia o billetera.",
 
     // Autenticación y permisos
     LOGIN_INVALID: "Email o contraseña incorrectos.",
@@ -60,9 +67,6 @@ export const Messages = Object.freeze({
     PASSWORD_SHORT: "La contraseña debe tener al menos 8 caracteres.",
     PASSWORD_LONG: "La contraseña es demasiado larga.",
     PASSWORD_REQUIRED: "La contraseña es obligatoria.",
-
-    // Pagos
-    PAGOS_NO_DISPONIBLES: "Los pagos online estarán disponibles pronto. Por ahora el club registra tu pago.",
 
     // Genéricos
     INVALID_DATA: "Los datos enviados son inválidos.",
