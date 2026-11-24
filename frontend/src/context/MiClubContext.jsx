@@ -1,54 +1,74 @@
 import { useCallback, useMemo } from 'react';
 import { MiClubContext } from './miClubContextValue.js';
 import { useResource } from '../hooks/useResource.js';
+import { useDialog } from '../hooks/useDialog.js';
 import { getDisciplinas } from '../services/disciplinasService.js';
-import { getHorarios } from '../services/horariosService.js';
-import { getProfesores } from '../services/profesoresService.js';
-import { getMisCuotas, getMisInscripciones } from '../services/miClubService.js';
-import Spinner from '../components/ui/Spinner.jsx';
-import ErrorState from '../components/ui/ErrorState.jsx';
-import { ESTADOS_INSCRIPCION_CERRADOS } from '../utils/constants.js';
+import { getMisAvisos, getMisCuotas, getMisInscripciones, markAvisosRead } from '../services/miClubService.js';
+import { CERRADAS } from '../utils/club.js';
 
-const estaVigente = (inscripcion) => !ESTADOS_INSCRIPCION_CERRADOS.includes(inscripcion.estado);
+const estaAbierta = (inscripcion) => !CERRADAS.includes(inscripcion.estado);
 
 /**
- * Datos de la vista de socio, cargados una vez y compartidos entre pantallas.
- * El servidor ya filtra inscripciones y cuotas: acá solo llegan las del socio autenticado.
+ * Datos del panel de socio, cargados una vez y compartidos entre pantallas: disciplinas (con sus
+ * horarios), inscripciones, cuotas y avisos. El servidor ya filtra todo por el socio autenticado.
+ * También guarda qué modal está abierto (detalle de disciplina, pago, bajas) para que cualquier
+ * pantalla pueda abrirlos con `openModal`.
  */
 export default function MiClubProvider({ children }) {
+    const modal = useDialog();
+
     const load = useCallback(async () => {
-        const [disciplinas, horarios, profesores, inscripciones, cuotas] = await Promise.all([
+        const [disciplinas, inscripciones, cuotas, avisos] = await Promise.all([
             getDisciplinas(),
-            getHorarios(),
-            getProfesores(),
             getMisInscripciones(),
             getMisCuotas(),
+            getMisAvisos(),
         ]);
-        return { disciplinas, horarios, profesores, inscripciones, cuotas };
+        return { disciplinas, inscripciones, cuotas, avisos };
     }, []);
 
     const { data, loading, error, reload } = useResource(load);
 
+    const markRead = useCallback(async () => {
+        if (!data?.avisos.some((aviso) => !aviso.leido)) return;
+        try {
+            await markAvisosRead();
+            reload();
+        } catch {
+            // no es crítico: los avisos siguen figurando como no leídos
+        }
+    }, [data, reload]);
+
     const value = useMemo(() => {
         if (!data) return null;
         const disciplinaById = new Map(data.disciplinas.map((item) => [item.id, item]));
-        const profesorById = new Map(data.profesores.map((item) => [item.id, item]));
+        const abiertas = data.inscripciones.filter(estaAbierta);
         return {
             ...data,
             reload,
             disciplinaById,
-            profesorById,
-            horariosDe: (idDisciplina) => data.horarios.filter((horario) => horario.idDisciplina === idDisciplina),
-            // La inscripción más reciente de cada disciplina que no esté dada de baja
-            inscripcionVigente: (idDisciplina) => data.inscripciones.find(
-                (inscripcion) => inscripcion.idDisciplina === idDisciplina && estaVigente(inscripcion),
-            ) ?? null,
-            vigentes: data.inscripciones.filter(estaVigente),
+            // Solo disciplinas activas se muestran para anotarse
+            disponibles: data.disciplinas.filter((item) => item.activa),
+            abiertas,
+            // La inscripción abierta de una disciplina (las finalizadas o canceladas ya no cuentan)
+            inscripcionDe: (idDisciplina) => abiertas.find((inscripcion) => inscripcion.idDisciplina === idDisciplina) ?? null,
+            markAvisosRead: markRead,
+            modal,
+            openModal: (target) => modal.show(target),
         };
-    }, [data, reload]);
+    }, [data, reload, markRead, modal]);
 
-    if (loading && !data) return <Spinner label="Preparando tu club…" />;
-    if (error && !data) return <ErrorState message={error} onRetry={reload} />;
+    if (loading && !data) return <p className="c-spinner" role="status">Preparando tu club…</p>;
+    if (error && !data) {
+        return (
+            <div className="c-panel">
+                <p className="c-error" role="alert">{error}</p>
+                <button type="button" className="c-btn c-btn--primary" style={{ alignSelf: 'flex-start' }} onClick={reload}>
+                    Reintentar
+                </button>
+            </div>
+        );
+    }
 
     return <MiClubContext.Provider value={value}>{children}</MiClubContext.Provider>;
 }

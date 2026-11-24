@@ -45,18 +45,32 @@ Los permisos se aplican en el servidor (`requireAuth` + `requireRole` en las rut
 
 | Recurso | Sin sesión | Socio | Admin |
 |---|---|---|---|
-| `POST /auth/login`, `POST /auth/register` | permitido | — | — |
-| `GET /public/disciplinas` | permitido (activas, solo datos comerciales) | permitido | permitido |
+| `POST /auth/login` (email **o DNI**), `POST /auth/register` | permitido | — | — |
+| `GET /public/disciplinas` (con tipo de inscripción, cuota aparte y horarios), `GET /public/club` (cuota social y edad adulta) | permitido | permitido | permitido |
 | `GET /auth/me` | 401 | propio | propio |
 | `/disciplinas`, `/horarios`, `/profesores` | 401 | solo lectura (disciplinas con `cupoDisponible`; profesores sin teléfono) | CRUD |
 | `/socios` | 401 | 403 | CRUD (alta con contraseña inicial) |
 | `/socios/me` | 401 | ver y editar su perfil (campos permitidos), `POST /me/baja` | 403 |
-| `/inscripciones` | 401 | ve solo las propias; crea siempre como `PENDIENTE`; `POST /:id/solicitar-baja`; `GET /superposiciones?idDisciplina=` | CRUD |
+| `/inscripciones` | 401 | ve solo las propias; crea siempre como `SOLICITADA` o `PRUEBA_SOLICITADA`; `POST /:id/solicitar-baja`; `POST /:id/visto`; `GET /superposiciones?idDisciplina=` | CRUD + `POST /:id/agendar-prueba` y `POST /:id/resultado` |
 | `/cuotas` | 401 | ve solo las propias; `POST /:id/pagar` | CRUD |
+| `/avisos` | 401 | ve y marca como leídos (`POST /leer`) los propios | 403 |
 
 ### Ciclo de una inscripción
 
-`PENDIENTE` → el admin confirma → `CONFIRMADA`. Si el socio pide la baja: una solicitud `PENDIENTE` pasa a `CANCELADA` al instante y una `CONFIRMADA` pasa a `BAJA_PENDIENTE` hasta que el admin la finaliza (`FINALIZADA`). Solo ocupan cupo las inscripciones que no están `FINALIZADA` ni `CANCELADA`.
+Hay dos tipos de disciplina (`tipoInscripcion`):
+
+- **directa:** `SOLICITADA` → el club confirma → `ACTIVA`.
+- **prueba:** `PRUEBA_SOLICITADA` → el club agenda la fecha (`PRUEBA_AGENDADA`, con `fechaPrueba`) → resultado: `ACTIVA` (quedó), `ESPERA` (lista de espera) o `NO_QUEDO`.
+
+Si el socio pide la baja: una solicitud, prueba o espera pasa a `CANCELADA` al instante y una `ACTIVA` pasa a `BAJA_PENDIENTE` hasta que el admin la finaliza (`FINALIZADA`). Ocupan cupo `SOLICITADA`, `ACTIVA` y `BAJA_PENDIENTE` (una prueba o la espera no). Cada cambio que hace el club genera un aviso para el socio y marca la inscripción como `nuevo` hasta que la ve; al pasar a `ACTIVA` se genera la cuota de la disciplina si tiene cuota aparte.
+
+### Cuotas
+
+Hay dos tipos: `social` (todos los meses, monto provisorio en `enums/Club.js`) y `disciplina` (solo disciplinas con `cuotaAparte`, mientras la inscripción está activa). La social se genera al darse de alta y una vez por mes (la primera vez que el socio consulta sus cuotas en el mes); la de disciplina, al pasar a `ACTIVA` y una vez por mes. Un socio tiene una sola cuota por período, tipo y disciplina.
+
+### Alta de socio
+
+`POST /auth/register` pide nombre, apellido, DNI (7–8 números, único), fecha de nacimiento, celular, email y contraseña (mínimo 8). Si el socio es menor de `Club.EDAD_ADULTA` (18, provisorio) también `adultoResponsable { nombre, dni, celular }`. `disciplinasInteres` (ids) solo personaliza el aviso de bienvenida.
 
 ## Reglas de negocio
 

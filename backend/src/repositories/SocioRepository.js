@@ -10,12 +10,14 @@ let nextId = 1;
 
 const socios = [];
 
-function crearSocioInicial(nombre, apellido, email, telefono, fechaNacimiento, fechaAlta) {
+// `telefono` es el celular del socio. `adultoResponsable` ({ nombre, dni, celular }) solo existe en menores.
+function crearSocioInicial(nombre, apellido, dni, email, telefono, fechaNacimiento, fechaAlta) {
     const id = nextId++;
     socios.push({
         id,
         nombre,
         apellido,
+        dni,
         email,
         telefono,
         rol: Roles.SOCIO,
@@ -23,14 +25,15 @@ function crearSocioInicial(nombre, apellido, email, telefono, fechaNacimiento, f
         numeroSocio: 1000 + id,
         fechaNacimiento,
         fechaAlta,
+        adultoResponsable: null,
         fechaBajaSolicitada: null,
         estado: EstadoSocio.ACTIVO
     });
 }
 
-crearSocioInicial("Lucía", "Martínez", "lucia@mail.com", "3415551001", "1995-03-12", "2025-02-01");
-crearSocioInicial("Tomás", "Ruiz", "tomas@mail.com", "3415551002", "1988-11-30", "2025-03-15");
-crearSocioInicial("Sofía", "López", "sofia@mail.com", "3415551003", "2001-07-04", "2025-05-20");
+crearSocioInicial("Lucía", "Martínez", "40123456", "lucia@mail.com", "11 2345-6789", "1994-05-12", "2025-02-03");
+crearSocioInicial("Tomás", "Ruiz", "35111222", "tomas@mail.com", "11 5555-1002", "1988-11-30", "2025-03-15");
+crearSocioInicial("Sofía", "López", "43999888", "sofia@mail.com", "11 5555-1003", "2001-07-04", "2025-05-20");
 
 function findAll() {
     return socios;
@@ -38,6 +41,10 @@ function findAll() {
 
 function findById(id) {
     return socios.find((socio) => socio.id === id);
+}
+
+function findByDni(dni) {
+    return socios.find((socio) => socio.dni && socio.dni === dni);
 }
 
 function findByEmail(email) {
@@ -73,6 +80,7 @@ export default {
     findAll,
     findById,
     findByEmail,
+    findByDni,
     create,
     update,
     remove

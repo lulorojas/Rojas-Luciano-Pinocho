@@ -1,127 +1,131 @@
 import { useState } from 'react';
-import PageIntro from '../../components/socio/PageIntro.jsx';
-import Reveal from '../../components/socio/Reveal.jsx';
-import ResourceForm from '../../components/ResourceForm.jsx';
-import ConfirmDialog from '../../components/ui/ConfirmDialog.jsx';
-import Button from '../../components/ui/Button.jsx';
-import Badge from '../../components/ui/Badge.jsx';
+import CarnetSocio from '../../components/club/CarnetSocio.jsx';
+import Reveal from '../../components/club/Reveal.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
-import { useDialog } from '../../hooks/useDialog.js';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
+import { useMiClub } from '../../hooks/useMiClub.js';
 import { useToast } from '../../hooks/useToast.js';
-import { requestClubWithdrawal, updateProfile } from '../../services/miClubService.js';
-import { formatDate, fullName, initials } from '../../utils/formatters.js';
+import { updateProfile } from '../../services/miClubService.js';
+import { desdeTxt, fdate, isoDate } from '../../utils/club.js';
 
-const FIELDS = [
-    { name: 'nombre', label: 'Nombre', required: true },
-    { name: 'apellido', label: 'Apellido', required: true },
-    { name: 'telefono', label: 'Teléfono', hint: 'Con código de área, así el club puede avisarte si hay cambios.' },
-    {
-        name: 'fechaNacimiento',
-        label: 'Fecha de nacimiento',
-        type: 'date',
-        validate: (value) => (value > new Date().toISOString().slice(0, 10) ? 'La fecha no puede ser futura' : null),
-    },
-];
+const EMAIL = /^\S+@\S+\.\S+$/;
+
+function Campo({ label, name, value, onChange, type = 'text', autoComplete }) {
+    return (
+        <label className="c-field">
+            {label}
+            <input name={name} type={type} value={value} onChange={onChange} autoComplete={autoComplete} />
+        </label>
+    );
+}
 
 export default function Perfil() {
     useDocumentTitle('Perfil');
     const { user, setUser } = useAuth();
+    const club = useMiClub();
     const toast = useToast();
-    const withdrawal = useDialog();
+    const [form, setForm] = useState({
+        nombre: user.nombre,
+        apellido: user.apellido,
+        telefono: user.telefono ?? '',
+        email: user.email,
+        fechaNacimiento: user.fechaNacimiento ?? '',
+    });
+    const [error, setError] = useState('');
     const [saving, setSaving] = useState(false);
-    const [busy, setBusy] = useState(false);
+    const dado = Boolean(user.fechaBajaSolicitada);
 
-    const initialValues = Object.fromEntries(FIELDS.map((field) => [field.name, user[field.name] ?? '']));
+    const change = (event) => {
+        setForm((actual) => ({ ...actual, [event.target.name]: event.target.value }));
+        setError('');
+    };
 
-    const save = async (values) => {
+    const submit = async (event) => {
+        event.preventDefault();
+        if (!form.nombre.trim() || !form.apellido.trim()) return setError('Nombre y apellido son obligatorios.');
+        if (!EMAIL.test(form.email.trim())) return setError('Revisá el email.');
+        if (form.fechaNacimiento && form.fechaNacimiento > isoDate(new Date())) return setError('La fecha no puede ser futura.');
+
         setSaving(true);
         try {
-            setUser(await updateProfile(values));
+            setUser(await updateProfile({ ...form, email: form.email.trim() }));
             toast.success('Guardamos tus datos.');
-        } catch (error) {
-            toast.error(error.message);
+        } catch (err) {
+            setError(err.message);
         } finally {
             setSaving(false);
         }
+        return undefined;
     };
 
-    const confirmWithdrawal = async () => {
-        setBusy(true);
-        try {
-            setUser(await requestClubWithdrawal());
-            withdrawal.hide();
-            toast.success('Recibimos tu pedido de baja. El club se va a comunicar con vos.');
-        } catch (error) {
-            toast.error(error.message);
-        } finally {
-            setBusy(false);
-        }
-    };
+    const adulto = user.adultoResponsable;
 
     return (
-        <>
-            <PageIntro title="Tu perfil" lead="Mantené tus datos al día para que el club pueda contactarte." />
+        <div className="c-panel">
+            <Reveal className="c-title">
+                <h1 className="c-h1">Perfil</h1>
+                <p className="c-sub">Mantené tus datos al día para que el club pueda contactarte.</p>
+            </Reveal>
 
-            <div className="perfil-grid">
-                <Reveal>
-                    <section className="soft-card">
-                        <div className="perfil-head">
-                            <span className="avatar" aria-hidden="true">{initials(user)}</span>
-                            <div>
-                                <h2>{fullName(user)}</h2>
-                                <p className="muted">
-                                    Socio N.º {user.numeroSocio} · desde el {formatDate(user.fechaAlta)}
-                                </p>
-                                <p className="muted">{user.email}</p>
-                            </div>
+            <div className="c-split">
+                <Reveal index={1} as="section" className="c-card c-card--grow-sm">
+                    <dl className="c-perfil-dl">
+                        <div><dt className="c-dt">Socio N.º</dt><dd>{user.numeroSocio}</dd></div>
+                        <div><dt className="c-dt">DNI</dt><dd>{user.dni ? Number(user.dni).toLocaleString('es-AR') : '—'}</dd></div>
+                        <div><dt className="c-dt">Alta</dt><dd>{fdate(user.fechaAlta)}</dd></div>
+                    </dl>
+
+                    <form className="c-form" onSubmit={submit} noValidate>
+                        <div className="c-form__grid">
+                            <Campo label="Nombre" name="nombre" value={form.nombre} onChange={change} autoComplete="given-name" />
+                            <Campo label="Apellido" name="apellido" value={form.apellido} onChange={change} autoComplete="family-name" />
+                            <Campo label="Celular" name="telefono" type="tel" value={form.telefono} onChange={change} autoComplete="tel" />
+                            <Campo label="Email" name="email" type="email" value={form.email} onChange={change} autoComplete="email" />
+                            <Campo label="Fecha de nacimiento" name="fechaNacimiento" type="date" value={form.fechaNacimiento} onChange={change} />
                         </div>
-                        <ResourceForm
-                            fields={FIELDS}
-                            initialValues={initialValues}
-                            submitLabel="Guardar cambios"
-                            submitting={saving}
-                            onSubmit={save}
-                            showLegend={false}
-                        />
-                    </section>
+                        {error && <p className="c-error" role="alert">{error}</p>}
+                        <button type="submit" className="c-btn c-btn--md c-btn--primary" style={{ alignSelf: 'flex-start' }} disabled={saving}>
+                            {saving ? 'Guardando…' : 'Guardar cambios'}
+                        </button>
+                    </form>
+
+                    {adulto && (
+                        <div className="c-tutor">
+                            <span className="c-dt">Adulto responsable</span>
+                            <strong>{adulto.nombre}</strong>
+                            <span>DNI {Number(adulto.dni).toLocaleString('es-AR')} · {adulto.celular}</span>
+                        </div>
+                    )}
                 </Reveal>
 
-                <Reveal delay={80}>
-                    <section className="soft-card soft-card--quiet">
-                        <h2>Baja del club</h2>
-                        {user.fechaBajaSolicitada ? (
-                            <>
-                                <p><Badge variant="warning">Pedida el {formatDate(user.fechaBajaSolicitada)}</Badge></p>
-                                <p className="muted">
-                                    Ya recibimos tu pedido. La administración del club lo procesa y se comunica con vos.
-                                </p>
-                            </>
+                <div className="c-aside">
+                    <Reveal index={2}>
+                        <CarnetSocio
+                            nombre={`${user.nombre} ${user.apellido}`}
+                            numero={String(user.numeroSocio)}
+                            desde={desdeTxt(user.fechaAlta)}
+                            estado={dado ? 'Baja pedida' : 'Socio activo'}
+                        />
+                    </Reveal>
+                    <Reveal index={3} as="section" className="c-card c-card--tight">
+                        <h2 className="c-h3">Baja del club</h2>
+                        {dado ? (
+                            <p className="c-muted" style={{ fontSize: 15, lineHeight: 1.5 }}>
+                                Pediste la baja el {fdate(user.fechaBajaSolicitada)}. La administración del club se comunica con vos.
+                            </p>
                         ) : (
                             <>
-                                <p className="muted">
-                                    Si ya no querés ser parte del club, podés pedir tu baja. No se borra nada de inmediato:
-                                    el club revisa tu pedido y se comunica con vos.
+                                <p className="c-muted" style={{ fontSize: 15, lineHeight: 1.5 }}>
+                                    Si ya no querés ser socio, podés pedir la baja. El club revisa tu pedido y se comunica con vos.
                                 </p>
-                                <Button variant="danger-outline" onClick={() => withdrawal.show()}>Pedir la baja del club</Button>
+                                <button type="button" className="c-btn c-btn--danger-outline" style={{ alignSelf: 'flex-start' }} onClick={() => club.openModal({ type: 'bajaClub' })}>
+                                    Pedir la baja del club
+                                </button>
                             </>
                         )}
-                    </section>
-                </Reveal>
+                    </Reveal>
+                </div>
             </div>
-
-            {withdrawal.target && (
-                <ConfirmDialog
-                    title="Pedir la baja del club"
-                    message="¿Seguro que querés dejar el club? Mientras el pedido esté en trámite no vas a poder inscribirte en nuevas disciplinas."
-                    confirmLabel="Sí, pedir la baja"
-                    open={withdrawal.open}
-                    loading={busy}
-                    onConfirm={confirmWithdrawal}
-                    onCancel={withdrawal.hide}
-                    onExited={withdrawal.reset}
-                />
-            )}
-        </>
+        </div>
     );
 }

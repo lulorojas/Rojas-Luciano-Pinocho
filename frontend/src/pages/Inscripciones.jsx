@@ -5,10 +5,12 @@ import {
     createInscripcion,
     updateInscripcion,
     deleteInscripcion,
+    scheduleTrial,
+    setTrialResult,
 } from '../services/inscripcionesService.js';
 import { getSocios } from '../services/sociosService.js';
 import { getDisciplinas } from '../services/disciplinasService.js';
-import { ESTADOS_INSCRIPCION, toOptions } from '../utils/constants.js';
+import { ESTADOS_INSCRIPCION, ESTADO_LABEL, toOptions } from '../utils/constants.js';
 import { formatDate, fullName } from '../utils/formatters.js';
 
 const service = {
@@ -23,12 +25,24 @@ const lookups = { socios: getSocios, disciplinas: getDisciplinas };
 const nombreSocio = (item, { socios }) => fullName(socios.find((s) => s.id === item.idSocio));
 const nombreDisciplina = (item, { disciplinas }) => disciplinas.find((d) => d.id === item.idDisciplina)?.nombre ?? '—';
 
+// "AAAA-MM-DDTHH:MM" -> "06/06/2026 10:00"
+const formatTrial = (value) => (value ? `${formatDate(value)} ${value.slice(11, 16)}` : '—');
+
+// Sábado próximo a las 10:00 (al menos 2 días adelante): fecha sugerida al agendar una prueba
+function suggestedTrial() {
+    const date = new Date();
+    date.setDate(date.getDate() + 2);
+    while (date.getDay() !== 6) date.setDate(date.getDate() + 1);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T10:00`;
+}
+
 const columns = (ctx) => [
     { key: 'idSocio', header: 'Socio', render: (item) => nombreSocio(item, ctx) },
     { key: 'idDisciplina', header: 'Disciplina', render: (item) => nombreDisciplina(item, ctx) },
     { key: 'fechaSolicitud', header: 'Solicitada', sortBy: 'raw', render: (item) => formatDate(item.fechaSolicitud) },
-    { key: 'fechaConfirmacion', header: 'Confirmada', sortBy: 'raw', render: (item) => formatDate(item.fechaConfirmacion) },
-    { key: 'estado', header: 'Estado', render: (item) => <Badge>{item.estado}</Badge> },
+    { key: 'fechaPrueba', header: 'Prueba', sortBy: 'raw', render: (item) => formatTrial(item.fechaPrueba) },
+    { key: 'estado', header: 'Estado', render: (item) => <Badge>{ESTADO_LABEL[item.estado] ?? item.estado}</Badge> },
 ];
 
 const fields = ({ socios, disciplinas }) => [
@@ -52,9 +66,15 @@ const fields = ({ socios, disciplinas }) => [
         name: 'estado',
         label: 'Estado',
         type: 'select',
-        required: true,
+        placeholder: 'Según la disciplina (solicitada o prueba solicitada)',
         options: toOptions(ESTADOS_INSCRIPCION),
-        defaultValue: 'PENDIENTE',
+        hint: 'Las pruebas solo existen en disciplinas con prueba.',
+    },
+    {
+        name: 'fechaPrueba',
+        label: 'Fecha de la prueba',
+        type: 'datetime-local',
+        hint: 'Solo si la prueba está agendada.',
     },
 ];
 
@@ -67,19 +87,50 @@ const filters = () => [
     },
 ];
 
-// Acciones del flujo: solicitud → confirmación → baja. La baja de una inscripción confirmada la pide
-// el socio (BAJA_PENDIENTE) y el administrador la finaliza.
+// Flujo del club. Directa: solicitada → confirmar. Con prueba: solicitada → agendar → resultado
+// (quedó / lista de espera / no quedó). Baja: la pide el socio (BAJA_PENDIENTE) y el club la aprueba.
 const extraActions = (item) => [
     {
         label: 'Confirmar',
         primary: true,
-        hidden: item.estado !== 'PENDIENTE',
-        run: () => updateInscripcion(item.id, { estado: 'CONFIRMADA' }),
+        hidden: item.estado !== 'SOLICITADA',
+        run: () => updateInscripcion(item.id, { estado: 'ACTIVA' }),
         success: 'Inscripción confirmada correctamente',
     },
     {
+        label: 'Agendar prueba',
+        primary: true,
+        hidden: item.estado !== 'PRUEBA_SOLICITADA',
+        run: () => scheduleTrial(item.id, suggestedTrial()),
+        success: 'Prueba agendada para el próximo sábado a las 10:00. Podés cambiar la fecha desde Editar.',
+    },
+    {
+        label: 'Quedó',
+        primary: true,
+        hidden: !['PRUEBA_AGENDADA', 'ESPERA'].includes(item.estado),
+        run: () => setTrialResult(item.id, 'ACTIVA'),
+        success: 'Resultado cargado: quedó en la disciplina',
+    },
+    {
+        label: 'Lista de espera',
+        hidden: item.estado !== 'PRUEBA_AGENDADA',
+        run: () => setTrialResult(item.id, 'ESPERA'),
+        success: 'Resultado cargado: lista de espera',
+    },
+    {
+        label: 'No quedó',
+        hidden: item.estado !== 'PRUEBA_AGENDADA',
+        confirm: {
+            title: 'Cargar "no quedó"',
+            message: (nombre) => `¿Seguro que querés informar que "${nombre}" no quedó? El socio recibe el aviso.`,
+            confirmLabel: 'No quedó',
+        },
+        run: () => setTrialResult(item.id, 'NO_QUEDO'),
+        success: 'Resultado cargado: no quedó',
+    },
+    {
         label: 'Rechazar',
-        hidden: item.estado !== 'PENDIENTE',
+        hidden: !['SOLICITADA', 'PRUEBA_SOLICITADA'].includes(item.estado),
         confirm: {
             title: 'Rechazar la solicitud',
             message: (nombre) => `¿Seguro que querés rechazar la solicitud de "${nombre}"?`,
@@ -97,7 +148,7 @@ const extraActions = (item) => [
     },
     {
         label: 'Dar de baja',
-        hidden: !['CONFIRMADA', 'SUSPENDIDA'].includes(item.estado),
+        hidden: item.estado !== 'ACTIVA',
         confirm: {
             title: 'Dar de baja la inscripción',
             message: (nombre) => `¿Seguro que querés dar de baja la inscripción de "${nombre}"? Se libera su lugar en la disciplina.`,
@@ -112,7 +163,7 @@ export default function Inscripciones() {
     return (
         <ResourcePage
             title="Inscripciones"
-            description="Solicitudes de los socios para sumarse a una disciplina."
+            description="Solicitudes y pruebas de los socios para sumarse a una disciplina."
             singular="inscripción"
             article="a"
             service={service}

@@ -1,36 +1,47 @@
 // Repository de Inscripcion: único que toca el array en memoria.
-// Un lugar queda ocupado mientras la inscripción no esté FINALIZADA ni CANCELADA.
+//
+// Hay dos nociones distintas de "vigente":
+//   - ocupa lugar (cupo): SOLICITADA, ACTIVA, BAJA_PENDIENTE. Una prueba o la lista de espera NO ocupan lugar.
+//   - sigue abierta (duplicados): todo menos FINALIZADA y CANCELADA. Mientras una inscripción está abierta
+//     (incluso en lista de espera o con la prueba perdida) el socio no puede pedir la misma disciplina de nuevo.
 
 import Inscripcion from '../models/Inscripcion.js';
 import { EstadoInscripcion } from '../enums/EstadoInscripcion.js';
+import { proximoSabado10, sumarDias } from '../utils/fechas.js';
+import { todayIso } from '../utils/validators.js';
 
 let nextId = 1;
 
 const inscripciones = [];
 
 const ESTADOS_QUE_OCUPAN_LUGAR = [
-    EstadoInscripcion.PENDIENTE,
-    EstadoInscripcion.CONFIRMADA,
-    EstadoInscripcion.SUSPENDIDA,
+    EstadoInscripcion.SOLICITADA,
+    EstadoInscripcion.ACTIVA,
     EstadoInscripcion.BAJA_PENDIENTE
 ];
 
-function hoy() {
-    return new Date().toISOString().slice(0, 10);
-}
+const ESTADOS_CERRADOS = [EstadoInscripcion.FINALIZADA, EstadoInscripcion.CANCELADA];
 
-function crearInscripcionInicial(idSocio, idDisciplina, fechaSolicitud, fechaConfirmacion, estado) {
+function crearInscripcionInicial(idSocio, idDisciplina, fechaSolicitud, fechaConfirmacion, estado, fechaPrueba = null) {
     inscripciones.push(
-        new Inscripcion(nextId++, idSocio, idDisciplina, fechaSolicitud, fechaConfirmacion, null, null, estado)
+        new Inscripcion(nextId++, idSocio, idDisciplina, fechaSolicitud, fechaConfirmacion, null, null, estado, fechaPrueba)
     );
 }
 
-crearInscripcionInicial(1, 2, "2025-02-01", "2025-02-02", EstadoInscripcion.CONFIRMADA);
-crearInscripcionInicial(2, 1, "2025-03-15", "2025-03-16", EstadoInscripcion.CONFIRMADA);
-crearInscripcionInicial(3, 3, hoy(), null, EstadoInscripcion.PENDIENTE);
+const hoy = todayIso();
+// Disciplinas: 1 Futsal (prueba) · 2 Natación · 3 Patín (directas)
+crearInscripcionInicial(1, 2, "2025-02-03", "2025-02-04", EstadoInscripcion.ACTIVA);
+crearInscripcionInicial(2, 1, "2025-03-15", "2025-03-16", EstadoInscripcion.ACTIVA);
+crearInscripcionInicial(3, 3, hoy, null, EstadoInscripcion.SOLICITADA);
+crearInscripcionInicial(1, 1, sumarDias(hoy, -2), null, EstadoInscripcion.PRUEBA_AGENDADA, proximoSabado10(hoy));
+crearInscripcionInicial(1, 3, sumarDias(hoy, -3), null, EstadoInscripcion.SOLICITADA);
 
 export function ocupaLugar(inscripcion) {
     return ESTADOS_QUE_OCUPAN_LUGAR.includes(inscripcion.estado);
+}
+
+export function estaAbierta(inscripcion) {
+    return !ESTADOS_CERRADOS.includes(inscripcion.estado);
 }
 
 function findAll() {
@@ -55,14 +66,24 @@ function countQueOcupanLugar(idDisciplina, idAExcluir = null) {
     ).length;
 }
 
-function existeQueOcupaLugar(idSocio, idDisciplina, idAExcluir = null) {
+function existeAbierta(idSocio, idDisciplina, idAExcluir = null) {
     return findByDisciplina(idDisciplina).some(
         (inscripcion) =>
-            inscripcion.idSocio === idSocio && ocupaLugar(inscripcion) && inscripcion.id !== idAExcluir
+            inscripcion.idSocio === idSocio && estaAbierta(inscripcion) && inscripcion.id !== idAExcluir
     );
 }
 
-function create({ idSocio, idDisciplina, fechaSolicitud, fechaConfirmacion, fechaBajaSolicitada, fechaFinEfectiva, estado }) {
+function create({
+    idSocio,
+    idDisciplina,
+    fechaSolicitud,
+    fechaConfirmacion,
+    fechaBajaSolicitada,
+    fechaFinEfectiva,
+    estado,
+    fechaPrueba,
+    nuevo
+}) {
     const nuevaInscripcion = new Inscripcion(
         nextId++,
         idSocio,
@@ -71,7 +92,9 @@ function create({ idSocio, idDisciplina, fechaSolicitud, fechaConfirmacion, fech
         fechaConfirmacion ?? null,
         fechaBajaSolicitada ?? null,
         fechaFinEfectiva ?? null,
-        estado
+        estado,
+        fechaPrueba ?? null,
+        nuevo ?? false
     );
     inscripciones.push(nuevaInscripcion);
     return nuevaInscripcion;
@@ -101,7 +124,7 @@ export default {
     findBySocio,
     findByDisciplina,
     countQueOcupanLugar,
-    existeQueOcupaLugar,
+    existeAbierta,
     create,
     update,
     remove

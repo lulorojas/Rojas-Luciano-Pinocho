@@ -12,16 +12,40 @@ export const MEDIO_PAGO_LABEL = Object.fromEntries(MEDIOS_PAGO.map((medio) => [m
 export const ESTADOS_CUOTA = ['pendiente', 'pagada', 'vencida'];
 
 // Estados de una inscripción (mismos valores que el enum EstadoInscripcion del backend)
-export const ESTADOS_INSCRIPCION = ['PENDIENTE', 'CONFIRMADA', 'SUSPENDIDA', 'BAJA_PENDIENTE', 'FINALIZADA', 'CANCELADA'];
+export const ESTADOS_INSCRIPCION = [
+    'SOLICITADA',
+    'PRUEBA_SOLICITADA',
+    'PRUEBA_AGENDADA',
+    'ESPERA',
+    'NO_QUEDO',
+    'ACTIVA',
+    'BAJA_PENDIENTE',
+    'FINALIZADA',
+    'CANCELADA',
+];
 
 // Inscripciones que ya no ocupan lugar ni se muestran como vigentes
 export const ESTADOS_INSCRIPCION_CERRADOS = ['FINALIZADA', 'CANCELADA'];
 
+// Cómo se suma un socio a una disciplina
+export const TIPOS_INSCRIPCION = [
+    { value: 'directa', label: 'Se anota directo' },
+    { value: 'prueba', label: 'Con prueba' },
+];
+
+export const TIPOS_CUOTA = [
+    { value: 'social', label: 'Cuota social' },
+    { value: 'disciplina', label: 'Cuota de disciplina' },
+];
+
 // Cómo se escribe cada estado en pantalla
 export const ESTADO_LABEL = {
-    PENDIENTE: 'Pendiente',
-    CONFIRMADA: 'Confirmada',
-    SUSPENDIDA: 'Suspendida',
+    SOLICITADA: 'Solicitada',
+    PRUEBA_SOLICITADA: 'Prueba solicitada',
+    PRUEBA_AGENDADA: 'Prueba agendada',
+    ESPERA: 'Lista de espera',
+    NO_QUEDO: 'No quedó',
+    ACTIVA: 'Activa',
     BAJA_PENDIENTE: 'Baja pedida',
     FINALIZADA: 'Finalizada',
     CANCELADA: 'Cancelada',
@@ -34,9 +58,12 @@ export const ESTADO_VARIANT = {
     pendiente: 'warning',
     baja: 'danger',
     vencida: 'danger',
-    PENDIENTE: 'warning',
-    CONFIRMADA: 'success',
-    SUSPENDIDA: 'warning',
+    SOLICITADA: 'warning',
+    PRUEBA_SOLICITADA: 'warning',
+    PRUEBA_AGENDADA: 'warning',
+    ESPERA: 'warning',
+    NO_QUEDO: 'danger',
+    ACTIVA: 'success',
     BAJA_PENDIENTE: 'warning',
     FINALIZADA: 'neutral',
     CANCELADA: 'neutral',

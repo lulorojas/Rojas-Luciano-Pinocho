@@ -1,7 +1,10 @@
 class Cuota {
-    constructor(id, idSocio, periodo, monto, fechaVencimiento, fechaPago, estado, medioPago = null) {
+    // tipo: "social" | "disciplina" · idDisciplina: solo en las cuotas de disciplina
+    constructor(id, idSocio, tipo, idDisciplina, periodo, monto, fechaVencimiento, fechaPago, estado, medioPago = null) {
         this.id = id;
         this.idSocio = idSocio;
+        this.tipo = tipo;
+        this.idDisciplina = idDisciplina;
         this.periodo = periodo;
         this.monto = monto;
         this.fechaVencimiento = fechaVencimiento;

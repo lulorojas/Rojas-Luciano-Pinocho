@@ -13,7 +13,8 @@ function getById(req, res) {
     return successResponse(res, InscripcionService.getById(Number(req.params.id), req.user));
 }
 
-// Administrador: alta completa. Socio: solicitud propia (siempre PENDIENTE, lo demás lo fija el servidor).
+// Administrador: alta completa. Socio: solicitud propia (el estado inicial lo fija el servidor según el tipo
+// de disciplina: SOLICITADA o PRUEBA_SOLICITADA).
 function create(req, res) {
     const inscripcion =
         req.user.rol === Roles.ADMIN
@@ -36,6 +37,18 @@ function remove(req, res) {
     return successResponse(res, null);
 }
 
+function agendarPrueba(req, res) {
+    return successResponse(res, InscripcionService.agendarPrueba(Number(req.params.id), req.body));
+}
+
+function cargarResultado(req, res) {
+    return successResponse(res, InscripcionService.cargarResultado(Number(req.params.id), req.body));
+}
+
+function marcarVista(req, res) {
+    return successResponse(res, InscripcionService.marcarVista(req.user, Number(req.params.id)));
+}
+
 function solicitarBaja(req, res) {
     return successResponse(res, InscripcionService.solicitarBaja(req.user, Number(req.params.id)));
 }
@@ -46,6 +59,9 @@ export default {
     create,
     update,
     remove,
+    agendarPrueba,
+    cargarResultado,
+    marcarVista,
     solicitarBaja,
     superposiciones
 };

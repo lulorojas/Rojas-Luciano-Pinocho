@@ -6,7 +6,10 @@
 
 import AdministradorRepository from '../repositories/AdministradorRepository.js';
 import SocioRepository from '../repositories/SocioRepository.js';
+import DisciplinaRepository from '../repositories/DisciplinaRepository.js';
 import SocioService from './SocioService.js';
+import CuotaService from './CuotaService.js';
+import AvisoService from './AvisoService.js';
 import UnauthorizedError from '../exceptions/UnauthorizedError.js';
 import { Messages } from '../enums/Messages.js';
 import { Roles } from '../enums/Roles.js';
@@ -17,8 +20,12 @@ import { sinPassword } from '../utils/serializers.js';
 
 const limiter = createLoginLimiter();
 
-function buscarPorEmail(email) {
-    return AdministradorRepository.findByEmail(email) ?? SocioRepository.findByEmail(email);
+// El identificador puede ser un email o, para los socios, el DNI (con o sin puntos)
+function buscarPorIdentificador(identificador) {
+    if (identificador.includes('@')) {
+        return AdministradorRepository.findByEmail(identificador) ?? SocioRepository.findByEmail(identificador);
+    }
+    return SocioRepository.findByDni(identificador.replace(/\D/g, ''));
 }
 
 function buscarPorRolEId(rol, id) {
@@ -43,7 +50,7 @@ function login({ email, password, ip }) {
     const clave = `${ip}|${emailNormalizado}`;
     limiter.check(clave);
 
-    const usuario = buscarPorEmail(emailNormalizado);
+    const usuario = buscarPorIdentificador(emailNormalizado);
     // Se verifica siempre una contraseña (aunque el email no exista) y el mensaje es el mismo en
     // ambos casos: así no se puede averiguar qué cuentas existen.
     const valido = verifyPassword(String(password ?? ''), usuario?.passwordHash ?? DUMMY_HASH) && Boolean(usuario);
@@ -55,8 +62,25 @@ function login({ email, password, ip }) {
     return abrirSesion(usuario);
 }
 
-function register(datos) {
-    return abrirSesion(SocioService.registrar(datos));
+// Alta de socio: crea la cuenta, genera la cuota social del mes (pendiente, vence en unos días) y deja
+// el aviso de bienvenida. `disciplinasInteres` (ids que el visitante miró antes de asociarse) solo
+// personaliza el aviso: no inscribe a nadie.
+function register(datos = {}) {
+    const socio = SocioService.registrar(datos);
+    CuotaService.generarCuotaSocial(socio.id);
+
+    const interes = (Array.isArray(datos.disciplinasInteres) ? datos.disciplinasInteres : [])
+        .map((id) => DisciplinaRepository.findById(Number(id)))
+        .filter((disciplina) => disciplina?.activa)
+        .map((disciplina) => disciplina.nombre);
+    AvisoService.crear(
+        socio.id,
+        '¡Bienvenido/a a Pinocho!',
+        interes.length > 0
+            ? `Ya sos socio. Ahora podés anotarte en ${interes.join(' y ')}.`
+            : 'Ya sos socio. Elegí tu primera disciplina.'
+    );
+    return abrirSesion(socio);
 }
 
 // Devuelve el usuario dueño del token o lanza 401.

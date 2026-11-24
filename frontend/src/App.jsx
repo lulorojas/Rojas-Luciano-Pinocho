@@ -1,9 +1,9 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import ToastProvider from './components/notifications/ToastProvider.jsx';
 import AuthProvider from './context/AuthContext.jsx';
 import RequireRole from './components/RequireRole.jsx';
 import Layout from './components/layout/Layout.jsx';
-import SocioLayout from './components/socio/SocioLayout.jsx';
+import SocioLayout from './components/club/SocioLayout.jsx';
 import Landing from './pages/public/Landing.jsx';
 import Login from './pages/public/Login.jsx';
 import Registro from './pages/public/Registro.jsx';
@@ -28,7 +28,8 @@ export default function App() {
                 <AuthProvider>
                     <Routes>
                         <Route path="/" element={<Landing />} />
-                        <Route path="/login" element={<Login />} />
+                        <Route path="/ingresar" element={<Login />} />
+                        <Route path="/login" element={<Navigate to="/ingresar" replace />} />
                         <Route path="/registro" element={<Registro />} />
 
                         {/* Panel de administración: solo rol admin */}
@@ -45,7 +46,7 @@ export default function App() {
                             </Route>
                         </Route>
 
-                        {/* Vista de socio: solo rol socio */}
+                        {/* Panel de socio: solo rol socio (sin sesión se muestra el gate sobre el sitio) */}
                         <Route path="/socio" element={<RequireRole role="socio" />}>
                             <Route element={<SocioLayout />}>
                                 <Route index element={<Inicio />} />

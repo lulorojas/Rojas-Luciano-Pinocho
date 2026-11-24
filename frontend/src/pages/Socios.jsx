@@ -14,8 +14,9 @@ const service = {
 const columns = () => [
     { key: 'numeroSocio', header: 'N.º de socio' },
     { key: 'nombre', header: 'Nombre', render: fullName },
+    { key: 'dni', header: 'DNI', render: (item) => item.dni || '—' },
     { key: 'email', header: 'Email' },
-    { key: 'telefono', header: 'Teléfono', render: (item) => item.telefono || '—' },
+    { key: 'telefono', header: 'Celular', render: (item) => item.telefono || '—' },
     { key: 'fechaAlta', header: 'Alta', sortBy: 'raw', render: (item) => formatDate(item.fechaAlta) },
     {
         key: 'fechaBajaSolicitada',
@@ -41,7 +42,8 @@ const fields = (ctx, item) => [
     { name: 'nombre', label: 'Nombre', required: true },
     { name: 'apellido', label: 'Apellido', required: true },
     { name: 'email', label: 'Email', type: 'email', required: true },
-    { name: 'telefono', label: 'Teléfono', hint: 'Solo números, con código de área.' },
+    { name: 'dni', label: 'DNI', hint: '7 u 8 números, sin puntos.' },
+    { name: 'telefono', label: 'Celular', hint: 'Con código de área.' },
     { name: 'fechaNacimiento', label: 'Fecha de nacimiento', type: 'date' },
     {
         name: 'estado',

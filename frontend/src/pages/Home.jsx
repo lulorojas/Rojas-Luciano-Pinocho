@@ -13,11 +13,20 @@ import { getDisciplinas } from '../services/disciplinasService.js';
 import { getProfesores } from '../services/profesoresService.js';
 import { getHorarios } from '../services/horariosService.js';
 import { getCuotas, updateCuota } from '../services/cuotasService.js';
-import { getInscripciones, updateInscripcion } from '../services/inscripcionesService.js';
+import { getInscripciones, scheduleTrial, updateInscripcion } from '../services/inscripcionesService.js';
 import { DIAS_SEMANA } from '../utils/constants.js';
 import { formatCurrency, formatPeriod, fullName } from '../utils/formatters.js';
 
 const MAX_ATTENTION_ITEMS = 6;
+
+// Sábado próximo a las 10:00 (al menos 2 días adelante): fecha sugerida al agendar una prueba
+function suggestedTrial() {
+    const date = new Date();
+    date.setDate(date.getDate() + 2);
+    while (date.getDay() !== 6) date.setDate(date.getDate() + 1);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T10:00`;
+}
 
 // Date.getDay(): 0 = domingo. DIAS_SEMANA empieza en lunes.
 const todayName = () => DIAS_SEMANA[(new Date().getDay() + 6) % 7];
@@ -72,9 +81,11 @@ export default function Home() {
     const socioName = (id) => fullName(data.socios.find((socio) => socio.id === id));
     const disciplinaName = (id) => data.disciplinas.find((disciplina) => disciplina.id === id)?.nombre ?? '—';
 
-    const pendingInscripciones = data.inscripciones.filter((i) => i.estado === 'PENDIENTE');
-    const overdueCuotas = data.cuotas.filter((c) => c.estado === 'vencida');
-    const pendingCuotas = data.cuotas.filter((c) => c.estado === 'pendiente');
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const pendingInscripciones = data.inscripciones.filter((i) => ['SOLICITADA', 'PRUEBA_SOLICITADA'].includes(i.estado));
+    const isOverdue = (c) => c.estado === 'vencida' || (c.estado !== 'pagada' && c.fechaVencimiento < todayIso);
+    const overdueCuotas = data.cuotas.filter(isOverdue);
+    const pendingCuotas = data.cuotas.filter((c) => c.estado !== 'pagada' && !isOverdue(c));
 
     // Lo que requiere una acción hoy: primero lo vencido, luego las altas por confirmar
     const attention = [
@@ -88,9 +99,11 @@ export default function Home() {
         ...pendingInscripciones.map((inscripcion) => ({
             key: `inscripcion-${inscripcion.id}`,
             title: `${socioName(inscripcion.idSocio)} quiere sumarse a ${disciplinaName(inscripcion.idDisciplina)}`,
-            detail: 'Inscripción pendiente de confirmación',
-            action: 'Confirmar',
-            run: () => resolve(() => updateInscripcion(inscripcion.id, { estado: 'CONFIRMADA' }), 'Inscripción confirmada correctamente'),
+            detail: inscripcion.estado === 'PRUEBA_SOLICITADA' ? 'Pidió una prueba: falta agendarla' : 'Inscripción pendiente de confirmación',
+            action: inscripcion.estado === 'PRUEBA_SOLICITADA' ? 'Agendar prueba' : 'Confirmar',
+            run: () => (inscripcion.estado === 'PRUEBA_SOLICITADA'
+                ? resolve(() => scheduleTrial(inscripcion.id, suggestedTrial()), 'Prueba agendada para el próximo sábado a las 10:00')
+                : resolve(() => updateInscripcion(inscripcion.id, { estado: 'ACTIVA' }), 'Inscripción confirmada correctamente')),
         })),
     ];
 
@@ -102,7 +115,7 @@ export default function Home() {
     const summary = [
         { label: 'Socios activos', value: data.socios.filter((s) => s.estado === 'activo').length, to: '/admin/socios' },
         { label: 'Disciplinas activas', value: data.disciplinas.filter((d) => d.activa).length, to: '/admin/disciplinas' },
-        { label: 'Inscripciones pendientes', value: pendingInscripciones.length, to: '/admin/inscripciones?estado=PENDIENTE' },
+        { label: 'Inscripciones pendientes', value: pendingInscripciones.length, to: '/admin/inscripciones?estado=SOLICITADA' },
         { label: 'Cuotas vencidas', value: overdueCuotas.length, to: '/admin/cuotas?estado=vencida' },
         { label: 'Cuotas pendientes', value: pendingCuotas.length, to: '/admin/cuotas?estado=pendiente' },
     ];
@@ -146,7 +159,7 @@ export default function Home() {
                     {attention.length > MAX_ATTENTION_ITEMS && (
                         <p className="attention__more">
                             Y {attention.length - MAX_ATTENTION_ITEMS} más: revisá <Link to="/admin/cuotas?estado=vencida">cuotas</Link> e{' '}
-                            <Link to="/admin/inscripciones?estado=PENDIENTE">inscripciones</Link>.
+                            <Link to="/admin/inscripciones?estado=SOLICITADA">inscripciones</Link>.
                         </p>
                     )}
                 </Card>

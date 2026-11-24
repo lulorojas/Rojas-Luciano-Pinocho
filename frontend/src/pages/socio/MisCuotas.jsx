@@ -1,108 +1,107 @@
-import { useState } from 'react';
-import PageIntro from '../../components/socio/PageIntro.jsx';
-import CuotaCard from '../../components/socio/CuotaCard.jsx';
-import PagoModal from '../../components/socio/PagoModal.jsx';
-import Reveal from '../../components/socio/Reveal.jsx';
-import { RelaxArt } from '../../assets/illustrations/EmptyArt.jsx';
-import { useDialog } from '../../hooks/useDialog.js';
-import { useToast } from '../../hooks/useToast.js';
+import Reveal from '../../components/club/Reveal.jsx';
+import { Badge } from '../../components/club/parts.jsx';
 import { useDocumentTitle } from '../../hooks/useDocumentTitle.js';
 import { useMiClub } from '../../hooks/useMiClub.js';
 import { useNow } from '../../hooks/useNow.js';
-import { payCuota } from '../../services/miClubService.js';
-import { formatCurrency } from '../../utils/formatters.js';
+import {
+    ESTADO_CUOTA,
+    MEDIO_LABEL,
+    artOf,
+    concepto,
+    estadoCuota,
+    fdate,
+    isoDate,
+    mesCorto,
+    money,
+    periodoLabel,
+} from '../../utils/club.js';
 
-const byDueDate = (a, b) => a.fechaVencimiento.localeCompare(b.fechaVencimiento);
+// Pendientes primero (por vencimiento); las pagadas después, de la más reciente a la más vieja
+const ordenar = (a, b) => (a.estado === 'pagada') - (b.estado === 'pagada')
+    || (a.estado === 'pagada' ? b.fechaVencimiento.localeCompare(a.fechaVencimiento) : a.fechaVencimiento.localeCompare(b.fechaVencimiento));
 
 export default function MisCuotas() {
     useDocumentTitle('Mis cuotas');
     const club = useMiClub();
     const now = useNow();
-    const toast = useToast();
-    const pago = useDialog();
-    const [busy, setBusy] = useState(false);
+    const hoy = isoDate(now);
 
-    const porPagar = club.cuotas.filter((cuota) => cuota.estado !== 'pagada').sort(byDueDate);
-    const pagadas = club.cuotas.filter((cuota) => cuota.estado === 'pagada').sort((a, b) => byDueDate(b, a));
-    const total = porPagar.reduce((sum, cuota) => sum + cuota.monto, 0);
+    const pendientes = club.cuotas.filter((cuota) => cuota.estado !== 'pagada');
+    const deuda = pendientes.reduce((suma, cuota) => suma + cuota.monto, 0);
+    const sociales = club.cuotas.filter((cuota) => cuota.tipo === 'social').sort(ordenar);
+    const deDisciplina = club.cuotas.filter((cuota) => cuota.tipo === 'disciplina').sort(ordenar);
 
-    const pagar = async (medioPago) => {
-        setBusy(true);
-        try {
-            await payCuota(pago.target.id, medioPago);
-            club.reload();
-            pago.hide();
-            toast.success('¡Pago registrado! Tu cuota ya figura como pagada.');
-        } catch (error) {
-            toast.error(error.message);
-        } finally {
-            setBusy(false);
-        }
+    const fila = (cuota) => {
+        const estado = estadoCuota(cuota, hoy);
+        const [etiqueta, tono] = ESTADO_CUOTA[estado];
+        const nombre = concepto(cuota, club.disciplinaById);
+        const color = cuota.tipo === 'social' ? '#0a8a3a' : artOf(nombre).color;
+        const detalle = estado === 'pagada'
+            ? `Pagada el ${fdate(cuota.fechaPago)} · ${MEDIO_LABEL[cuota.medioPago] ?? 'Pago registrado'}`
+            : `${estado === 'vencida' ? 'Venció el' : 'Vence el'} ${fdate(cuota.fechaVencimiento)}`;
+        return (
+            <li key={cuota.id} className="c-cuota">
+                <span className="c-cuota__tile" style={{ background: color }}>{mesCorto(cuota.periodo)}</span>
+                <span className="c-cuota__text">
+                    <strong>{cuota.tipo === 'social' ? periodoLabel(cuota.periodo) : `${nombre} · ${periodoLabel(cuota.periodo)}`}</strong>
+                    <span>{detalle}</span>
+                </span>
+                <span className="c-cuota__side">
+                    <Badge tone={tono}>{etiqueta}</Badge>
+                    <span className="c-cuota__amount">{money(cuota.monto)}</span>
+                    {estado !== 'pagada' && (
+                        <button type="button" className="c-btn c-btn--primary c-btn--sm" onClick={() => club.openModal({ type: 'pago', id: cuota.id })}>
+                            Pagar
+                        </button>
+                    )}
+                </span>
+            </li>
+        );
     };
 
     return (
-        <>
-            <PageIntro title="Mis cuotas" lead="Todo lo que pagaste y lo que falta, en un solo lugar." />
+        <div className="c-panel">
+            <Reveal className="c-title">
+                <h1 className="c-h1">Mis cuotas</h1>
+                <p className="c-sub">La cuota social y, aparte, las cuotas de tus disciplinas. Montos de ejemplo, provisorios.</p>
+            </Reveal>
 
-            {porPagar.length === 0 ? (
-                <Reveal>
-                    <section className="soft-card soft-card--center">
-                        <RelaxArt />
-                        <h2>Estás al día</h2>
-                        <p className="muted">No tenés cuotas pendientes. ¡Gracias por ser parte del club!</p>
-                    </section>
+            {pendientes.length > 0 ? (
+                <Reveal index={1} as="p" className="c-bar" role="status">
+                    <span>{pendientes.length === 1 ? 'Tenés 1 cuota por pagar' : `Tenés ${pendientes.length} cuotas por pagar`}</span>
+                    <strong>{money(deuda)}</strong>
                 </Reveal>
             ) : (
-                <>
-                    <Reveal>
-                        <p className="debt-banner" role="status">
-                            {porPagar.length === 1 ? 'Tenés 1 cuota por pagar' : `Tenés ${porPagar.length} cuotas por pagar`}
-                            <strong>{formatCurrency(total)}</strong>
-                        </p>
-                    </Reveal>
-                    <h2 className="section-title">Por pagar</h2>
-                    <ul className="cuota-list">
-                        {porPagar.map((cuota, index) => (
-                            <Reveal as="li" key={cuota.id} delay={index * 50}>
-                                <CuotaCard cuota={cuota} now={now} onPay={pago.show} />
-                            </Reveal>
-                        ))}
-                    </ul>
-                </>
+                <Reveal index={1} as="p" className="c-bar c-bar--ok">
+                    <span><strong>Estás al día.</strong> No tenés cuotas por pagar.</span>
+                </Reveal>
             )}
 
-            {pagadas.length > 0 && (
-                <>
-                    <h2 className="section-title">Historial de pagos</h2>
-                    <ul className="cuota-list">
-                        {pagadas.map((cuota, index) => (
-                            <Reveal as="li" key={cuota.id} delay={index * 50}>
-                                <CuotaCard cuota={cuota} now={now} onPay={pago.show} />
-                            </Reveal>
-                        ))}
-                    </ul>
-                </>
-            )}
+            <Reveal index={2} as="section" className="c-block" aria-labelledby="c-social">
+                <div className="c-block__head">
+                    <h2 id="c-social" className="c-h3">Cuota social</h2>
+                    <p>Por ser socio del club. Se paga todos los meses.</p>
+                </div>
+                <ul className="c-cuotas">{sociales.map(fila)}</ul>
+            </Reveal>
 
-            <details className="help-box">
+            <Reveal index={3} as="section" className="c-block" aria-labelledby="c-disc">
+                <div className="c-block__head">
+                    <h2 id="c-disc" className="c-h3">Cuotas por disciplina</h2>
+                    <p>Solo las disciplinas que tienen cuota aparte, como natación.</p>
+                </div>
+                {deDisciplina.length > 0
+                    ? <ul className="c-cuotas">{deDisciplina.map(fila)}</ul>
+                    : <p className="c-empty" style={{ fontSize: 15, color: 'var(--club-muted)' }}>No tenés disciplinas con cuota aparte.</p>}
+            </Reveal>
+
+            <details className="c-details">
                 <summary>¿Cómo pago mi cuota?</summary>
                 <p>
-                    Tocá el botón <strong>Pagar</strong> de la cuota, elegí cómo querés pagar y confirmá. El pago
-                    queda registrado al instante y la cuota pasa a “Pagada” en esta pantalla. Si preferís, también
-                    podés acercarte a la administración del club.
+                    Tocá <strong>Pagar</strong>, elegí cómo querés pagar y confirmá. El pago queda registrado al instante.
+                    También podés acercarte a la administración del club.
                 </p>
             </details>
-
-            {pago.target && (
-                <PagoModal
-                    cuota={pago.target}
-                    open={pago.open}
-                    busy={busy}
-                    onConfirm={pagar}
-                    onClose={pago.hide}
-                    onExited={pago.reset}
-                />
-            )}
-        </>
+        </div>
     );
 }

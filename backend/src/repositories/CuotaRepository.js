@@ -2,18 +2,36 @@
 
 import Cuota from '../models/Cuota.js';
 import { EstadoCuota } from '../enums/EstadoCuota.js';
+import { TipoCuota } from '../enums/TipoCuota.js';
+import { Club } from '../enums/Club.js';
+import { moverPeriodo, periodoActual, sumarDias } from '../utils/fechas.js';
+import { todayIso } from '../utils/validators.js';
 
 let nextId = 1;
 
 const cuotas = [];
 
-function crearCuotaInicial(idSocio, periodo, monto, fechaVencimiento, fechaPago, estado) {
-    cuotas.push(new Cuota(nextId++, idSocio, periodo, monto, fechaVencimiento, fechaPago, estado));
+function crearCuotaInicial({ idSocio, tipo = TipoCuota.SOCIAL, idDisciplina = null, periodo, monto, venc, pago = null, estado, medio = null }) {
+    cuotas.push(new Cuota(nextId++, idSocio, tipo, idDisciplina, periodo, monto, venc, pago, estado, medio));
 }
 
-crearCuotaInicial(1, "2025-10", 9500, "2025-10-10", "2025-10-05", EstadoCuota.PAGADA);
-crearCuotaInicial(2, "2025-10", 8000, "2025-10-10", null, EstadoCuota.VENCIDA);
-crearCuotaInicial(3, "2025-11", 7500, "2025-11-10", null, EstadoCuota.PENDIENTE);
+// Los períodos de la semilla se calculan desde hoy para que el ejemplo siempre tenga sentido:
+// Lucía está al día hasta el mes pasado y tiene este mes por pagar; Tomás tiene una cuota vencida
+// marcada como tal; Sofía tiene una pendiente cuya fecha ya pasó (también vencida).
+const hoy = todayIso();
+const actual = periodoActual();
+const anterior = moverPeriodo(actual, -1);
+const antepenultimo = moverPeriodo(actual, -2);
+const venceEsteMes = `${actual}-28` > sumarDias(hoy, 3) ? `${actual}-28` : sumarDias(hoy, 7);
+
+crearCuotaInicial({ idSocio: 1, periodo: anterior, monto: Club.CUOTA_SOCIAL, venc: `${anterior}-10`, pago: `${anterior}-06`, estado: EstadoCuota.PAGADA, medio: 'transferencia' });
+crearCuotaInicial({ idSocio: 2, periodo: anterior, monto: Club.CUOTA_SOCIAL, venc: `${anterior}-10`, estado: EstadoCuota.VENCIDA });
+crearCuotaInicial({ idSocio: 3, periodo: anterior, monto: Club.CUOTA_SOCIAL, venc: `${anterior}-10`, estado: EstadoCuota.PENDIENTE });
+crearCuotaInicial({ idSocio: 1, periodo: antepenultimo, monto: Club.CUOTA_SOCIAL, venc: `${antepenultimo}-10`, pago: `${antepenultimo}-04`, estado: EstadoCuota.PAGADA, medio: 'tarjeta' });
+crearCuotaInicial({ idSocio: 1, periodo: actual, monto: Club.CUOTA_SOCIAL, venc: venceEsteMes, estado: EstadoCuota.PENDIENTE });
+// Natación (disciplina 2) tiene cuota aparte
+crearCuotaInicial({ idSocio: 1, tipo: TipoCuota.DISCIPLINA, idDisciplina: 2, periodo: anterior, monto: 9500, venc: `${anterior}-10`, pago: `${anterior}-06`, estado: EstadoCuota.PAGADA, medio: 'transferencia' });
+crearCuotaInicial({ idSocio: 1, tipo: TipoCuota.DISCIPLINA, idDisciplina: 2, periodo: actual, monto: 9500, venc: venceEsteMes, estado: EstadoCuota.PENDIENTE });
 
 function findAll() {
     return cuotas;
@@ -27,10 +45,23 @@ function findBySocio(idSocio) {
     return cuotas.filter((cuota) => cuota.idSocio === idSocio);
 }
 
-function create({ idSocio, periodo, monto, fechaVencimiento, fechaPago, estado, medioPago }) {
+// Una cuota se identifica por socio + tipo + disciplina (solo las de disciplina) + período.
+function findByClave(idSocio, tipo, idDisciplina, periodo) {
+    return cuotas.find(
+        (cuota) =>
+            cuota.idSocio === idSocio &&
+            cuota.tipo === tipo &&
+            (cuota.idDisciplina ?? null) === (idDisciplina ?? null) &&
+            cuota.periodo === periodo
+    );
+}
+
+function create({ idSocio, tipo, idDisciplina, periodo, monto, fechaVencimiento, fechaPago, estado, medioPago }) {
     const nuevaCuota = new Cuota(
         nextId++,
         idSocio,
+        tipo ?? TipoCuota.SOCIAL,
+        idDisciplina ?? null,
         periodo,
         monto,
         fechaVencimiento,
@@ -42,12 +73,14 @@ function create({ idSocio, periodo, monto, fechaVencimiento, fechaPago, estado, 
     return nuevaCuota;
 }
 
-function update(id, { idSocio, periodo, monto, fechaVencimiento, fechaPago, estado, medioPago }) {
+function update(id, { idSocio, tipo, idDisciplina, periodo, monto, fechaVencimiento, fechaPago, estado, medioPago }) {
     const cuota = findById(id);
     if (!cuota) {
         return null;
     }
     cuota.idSocio = idSocio;
+    cuota.tipo = tipo ?? TipoCuota.SOCIAL;
+    cuota.idDisciplina = idDisciplina ?? null;
     cuota.periodo = periodo;
     cuota.monto = monto;
     cuota.fechaVencimiento = fechaVencimiento;
@@ -70,6 +103,7 @@ export default {
     findAll,
     findById,
     findBySocio,
+    findByClave,
     create,
     update,
     remove

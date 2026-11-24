@@ -1,31 +1,64 @@
 // Service de Inscripcion: reglas de negocio del ciclo de una inscripción.
 //
-//   Socio:  solicita (PENDIENTE) → el admin confirma (CONFIRMADA) → entrena.
-//   Reglas: no se inscribe un socio de baja ni uno con cuotas vencidas; el cupo y los duplicados se
-//           controlan acá. Si la disciplina se pisa con otra del socio, solo se avisa (superposiciones).
-//   Baja:   si estaba PENDIENTE se cancela al instante (CANCELADA); si estaba CONFIRMADA pasa a
-//           BAJA_PENDIENTE y el admin la finaliza (FINALIZADA).
+//   Directa:  el socio se anota (SOLICITADA) → el club confirma (ACTIVA).
+//   Prueba:   el socio pide una prueba (PRUEBA_SOLICITADA) → el club agenda la fecha (PRUEBA_AGENDADA)
+//             → el club carga el resultado: ACTIVA (quedó), ESPERA (lista de espera) o NO_QUEDO.
+//   Baja:     una solicitud o prueba se cancela al instante (CANCELADA); una ACTIVA pasa a BAJA_PENDIENTE
+//             y el admin la finaliza (FINALIZADA).
+//   Reglas:   no se inscribe un socio de baja ni uno con cuotas vencidas; el cupo y los duplicados se
+//             controlan acá. Si la disciplina se pisa con otra del socio, solo se avisa (superposiciones).
+//   Avisos:   cada cambio que hace el club genera un aviso para el socio y marca la inscripción como
+//             `nuevo` hasta que el socio la ve. Al pasar a ACTIVA se genera la cuota de la disciplina
+//             (si tiene cuota aparte).
 //
 // El socio solo puede ver y crear lo propio; el admin puede todo. Esa separación se resuelve acá
 // (según el usuario que llega) y no en el controller.
 
-import InscripcionRepository from '../repositories/InscripcionRepository.js';
+import InscripcionRepository, { ocupaLugar } from '../repositories/InscripcionRepository.js';
 import DisciplinaService from './DisciplinaService.js';
 import SocioService from './SocioService.js';
 import CuotaService from './CuotaService.js';
 import HorarioService from './HorarioService.js';
+import AvisoService from './AvisoService.js';
 import BadRequestError from '../exceptions/BadRequestError.js';
 import NotFoundError from '../exceptions/NotFoundError.js';
 import ConflictError from '../exceptions/ConflictError.js';
 import { Messages } from '../enums/Messages.js';
 import { Roles } from '../enums/Roles.js';
-import { EstadoInscripcion } from '../enums/EstadoInscripcion.js';
+import { EstadoInscripcion, ESTADOS_DE_PRUEBA, RESULTADOS_DE_PRUEBA } from '../enums/EstadoInscripcion.js';
 import { EstadoSocio } from '../enums/EstadoSocio.js';
+import { TipoInscripcion } from '../enums/TipoInscripcion.js';
 import { isBlank, todayIso } from '../utils/validators.js';
 import { rangosSeSuperponen } from '../utils/horarios.js';
-import { ocupaLugar } from '../repositories/InscripcionRepository.js';
 
-function validarDatos({ idSocio, idDisciplina, estado }, idActual = null, esAlta = false) {
+const {
+    SOLICITADA,
+    PRUEBA_SOLICITADA,
+    PRUEBA_AGENDADA,
+    ESPERA,
+    NO_QUEDO,
+    ACTIVA,
+    BAJA_PENDIENTE,
+    FINALIZADA,
+    CANCELADA
+} = EstadoInscripcion;
+
+const FECHA_PRUEBA_REGEX = /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/;
+
+const estadoInicial = (disciplina) =>
+    disciplina.tipoInscripcion === TipoInscripcion.PRUEBA ? PRUEBA_SOLICITADA : SOLICITADA;
+
+// La hora de la prueba es hora local del club ("AAAA-MM-DDTHH:MM"); se compara contra el día de hoy.
+function fechaPruebaValida(valor) {
+    return (
+        typeof valor === 'string' &&
+        FECHA_PRUEBA_REGEX.test(valor) &&
+        !Number.isNaN(Date.parse(valor)) &&
+        valor.slice(0, 10) >= todayIso()
+    );
+}
+
+function validarDatos({ idSocio, idDisciplina, estado, fechaPrueba }, idActual = null, esAlta = false) {
     if (isBlank(idSocio) || isBlank(idDisciplina)) {
         throw new BadRequestError(Messages.INSCRIPCION_DATOS_REQUIRED);
     }
@@ -35,6 +68,14 @@ function validarDatos({ idSocio, idDisciplina, estado }, idActual = null, esAlta
 
     if (!Object.values(EstadoInscripcion).includes(estado)) {
         throw new BadRequestError(Messages.ESTADO_INSCRIPCION_INVALID);
+    }
+    // Los estados de prueba solo existen en disciplinas con prueba, y SOLICITADA solo en las directas
+    const esPrueba = disciplina.tipoInscripcion === TipoInscripcion.PRUEBA;
+    if ((ESTADOS_DE_PRUEBA.includes(estado) && !esPrueba) || (estado === SOLICITADA && esPrueba)) {
+        throw new BadRequestError(Messages.ESTADO_NO_APLICA);
+    }
+    if (estado === PRUEBA_AGENDADA && !fechaPruebaValida(fechaPrueba)) {
+        throw new BadRequestError(Messages.PRUEBA_FECHA_INVALID);
     }
     if (esAlta) {
         if (!disciplina.activa) {
@@ -48,13 +89,16 @@ function validarDatos({ idSocio, idDisciplina, estado }, idActual = null, esAlta
         }
     }
 
-    // Solo cuenta contra el cupo (y contra los duplicados) lo que va a ocupar un lugar
+    // Mientras la inscripción sigue abierta (incluso en espera) no se puede pedir la misma disciplina otra vez
+    if (estado !== FINALIZADA && estado !== CANCELADA) {
+        if (InscripcionRepository.existeAbierta(idSocio, idDisciplina, idActual)) {
+            throw new ConflictError(Messages.INSCRIPCION_DUPLICADA);
+        }
+    }
+    // Solo cuenta contra el cupo lo que va a ocupar un lugar (una prueba o la espera no lo ocupan)
     if (ocupaLugar({ estado })) {
         if (InscripcionRepository.countQueOcupanLugar(idDisciplina, idActual) >= disciplina.cupoMaximo) {
             throw new ConflictError(Messages.SIN_CUPO);
-        }
-        if (InscripcionRepository.existeQueOcupaLugar(idSocio, idDisciplina, idActual)) {
-            throw new ConflictError(Messages.INSCRIPCION_DUPLICADA);
         }
     }
 }
@@ -67,17 +111,13 @@ function construir(datos, actual = null) {
         idDisciplina: Number(datos.idDisciplina),
         fechaSolicitud: actual?.fechaSolicitud ?? datos.fechaSolicitud ?? todayIso(),
         fechaConfirmacion:
-            estado === EstadoInscripcion.CONFIRMADA
-                ? actual?.fechaConfirmacion ?? todayIso()
-                : actual?.fechaConfirmacion ?? null,
+            estado === ACTIVA ? actual?.fechaConfirmacion ?? todayIso() : actual?.fechaConfirmacion ?? null,
         fechaBajaSolicitada:
-            estado === EstadoInscripcion.BAJA_PENDIENTE
+            estado === BAJA_PENDIENTE
                 ? actual?.fechaBajaSolicitada ?? todayIso()
                 : actual?.fechaBajaSolicitada ?? null,
-        fechaFinEfectiva:
-            estado === EstadoInscripcion.FINALIZADA || estado === EstadoInscripcion.CANCELADA
-                ? actual?.fechaFinEfectiva ?? todayIso()
-                : null,
+        fechaFinEfectiva: estado === FINALIZADA || estado === CANCELADA ? actual?.fechaFinEfectiva ?? todayIso() : null,
+        fechaPrueba: estado === PRUEBA_AGENDADA ? datos.fechaPrueba : actual?.fechaPrueba ?? null,
         estado
     };
 }
@@ -110,11 +150,70 @@ function getById(id, usuario) {
     return usuario.rol === Roles.ADMIN ? getEntidad(id) : getPropia(usuario, id);
 }
 
-// Alta por el administrador (puede fijar el estado).
+const fechaLegible = (fechaPrueba) => {
+    const [dia, hora] = fechaPrueba.split('T');
+    const [anio, mes, d] = dia.split('-');
+    return `${d}/${mes}/${anio} a las ${hora}`;
+};
+
+// Lo que pasa cuando el CLUB cambia el estado de una inscripción: aviso al socio, marca de "nuevo"
+// y, si pasa a ACTIVA, la cuota de la disciplina. Los cambios iniciados por el propio socio no pasan por acá.
+function alCambiarElClub(anterior, actual) {
+    if (anterior.estado === actual.estado) {
+        return actual;
+    }
+    const disciplina = DisciplinaService.getEntidad(actual.idDisciplina);
+    const nombre = disciplina.nombre;
+    const esPrueba = disciplina.tipoInscripcion === TipoInscripcion.PRUEBA;
+    let aviso = null;
+    let nuevo = false;
+
+    switch (actual.estado) {
+        case PRUEBA_AGENDADA:
+            aviso = [`Tu prueba de ${nombre} ya tiene fecha`, `${fechaLegible(actual.fechaPrueba)}, en el club.`];
+            break;
+        case ACTIVA:
+            nuevo = true;
+            aviso = esPrueba
+                ? [`¡Quedaste en ${nombre}!`, 'Tu disciplina ya está activa.']
+                : [`El club confirmó tu lugar en ${nombre}`, 'Ya podés ir a entrenar.'];
+            CuotaService.generarCuotaDisciplina(actual.idSocio, disciplina);
+            break;
+        case ESPERA:
+            nuevo = true;
+            aviso = [`Prueba de ${nombre}: lista de espera`, 'Te avisamos si se libera un lugar.'];
+            break;
+        case NO_QUEDO:
+            nuevo = true;
+            aviso = [`Prueba de ${nombre}: esta vez no quedaste`, 'Consultá al club por las próximas pruebas.'];
+            break;
+        case FINALIZADA:
+            if (anterior.estado === BAJA_PENDIENTE) {
+                aviso = [`Tu baja de ${nombre} fue procesada`, 'Ya no figura en tu semana.'];
+            }
+            break;
+        case CANCELADA:
+            aviso = [`El club no pudo confirmar tu lugar en ${nombre}`, 'Consultá con la administración.'];
+            break;
+        default:
+            break;
+    }
+    if (aviso) {
+        AvisoService.crear(actual.idSocio, aviso[0], aviso[1]);
+    }
+    return nuevo ? InscripcionRepository.update(actual.id, { nuevo: true }) : actual;
+}
+
+// Alta por el administrador (puede fijar el estado). Sin estado, arranca como una solicitud del socio.
 function create(datos = {}) {
-    const completa = { ...datos, estado: datos.estado ?? EstadoInscripcion.PENDIENTE };
+    const disciplina = isBlank(datos.idDisciplina) ? null : DisciplinaService.getEntidad(Number(datos.idDisciplina));
+    const estado = datos.estado || (disciplina ? estadoInicial(disciplina) : SOLICITADA);
+    const completa = { ...datos, estado };
     validarDatos(completa, null, true);
-    return InscripcionRepository.create(construir(completa));
+    const creada = InscripcionRepository.create(construir(completa));
+    return estado === SOLICITADA || estado === PRUEBA_SOLICITADA
+        ? creada
+        : alCambiarElClub({ ...creada, estado: SOLICITADA }, creada);
 }
 
 // Solicitud del propio socio: el servidor fija quién es y el estado; lo que mande el cliente se descarta.
@@ -122,13 +221,24 @@ function solicitar(usuario, idDisciplina) {
     if (usuario.fechaBajaSolicitada) {
         throw new BadRequestError(Messages.BAJA_CLUB_EN_TRAMITE);
     }
-    const datos = { idSocio: usuario.id, idDisciplina, estado: EstadoInscripcion.PENDIENTE };
+    if (isBlank(idDisciplina)) {
+        throw new BadRequestError(Messages.INSCRIPCION_DATOS_REQUIRED);
+    }
+    const disciplina = DisciplinaService.getEntidad(Number(idDisciplina));
+    const datos = { idSocio: usuario.id, idDisciplina, estado: estadoInicial(disciplina) };
     validarDatos(datos, null, true);
-    return InscripcionRepository.create(construir(datos));
+    const creada = InscripcionRepository.create(construir(datos));
+    const prueba = disciplina.tipoInscripcion === TipoInscripcion.PRUEBA;
+    AvisoService.crear(
+        usuario.id,
+        prueba ? `Pediste una prueba de ${disciplina.nombre}` : `Pediste tu lugar en ${disciplina.nombre}`,
+        prueba ? 'El club te va a asignar una fecha.' : 'El club lo revisa y te confirma el lugar.'
+    );
+    return creada;
 }
 
-// Aviso para el socio antes de inscribirse: qué disciplinas suyas (vigentes) tienen un horario que se
-// pisa con los de la disciplina elegida. No bloquea nada: el socio decide si se inscribe igual.
+// Aviso para el socio antes de inscribirse: qué disciplinas suyas (activas o ya solicitadas) tienen un
+// horario que se pisa con los de la disciplina elegida. No bloquea nada: el socio decide si se inscribe igual.
 function superposiciones(usuario, idDisciplina) {
     if (isBlank(idDisciplina)) {
         throw new BadRequestError(Messages.INSCRIPCION_DATOS_REQUIRED);
@@ -138,7 +248,11 @@ function superposiciones(usuario, idDisciplina) {
     const horarios = HorarioService.getAll();
     const horariosNuevos = horarios.filter((horario) => horario.idDisciplina === idDisciplina);
     const disciplinasDelSocio = InscripcionRepository.findBySocio(usuario.id)
-        .filter((inscripcion) => ocupaLugar(inscripcion) && inscripcion.idDisciplina !== idDisciplina)
+        .filter(
+            (inscripcion) =>
+                (inscripcion.estado === ACTIVA || inscripcion.estado === SOLICITADA) &&
+                inscripcion.idDisciplina !== idDisciplina
+        )
         .map((inscripcion) => inscripcion.idDisciplina);
 
     const conflictos = [];
@@ -166,9 +280,38 @@ function superposiciones(usuario, idDisciplina) {
 
 function update(id, datos = {}) {
     const actual = getEntidad(id);
+    const anterior = { ...actual };
     const merged = { ...actual, ...datos };
     validarDatos(merged, id);
-    return InscripcionRepository.update(id, construir(merged, actual));
+    const guardada = InscripcionRepository.update(id, construir(merged, actual));
+    return alCambiarElClub(anterior, guardada);
+}
+
+// El club agenda la fecha de una prueba solicitada.
+function agendarPrueba(id, { fechaPrueba } = {}) {
+    const inscripcion = getEntidad(id);
+    if (inscripcion.estado !== PRUEBA_SOLICITADA && inscripcion.estado !== PRUEBA_AGENDADA) {
+        throw new BadRequestError(Messages.PRUEBA_SOLO_EN_DISCIPLINA_CON_PRUEBA);
+    }
+    return update(id, { estado: PRUEBA_AGENDADA, fechaPrueba });
+}
+
+// El club carga el resultado de una prueba agendada.
+function cargarResultado(id, { resultado } = {}) {
+    if (!RESULTADOS_DE_PRUEBA.includes(resultado)) {
+        throw new BadRequestError(Messages.RESULTADO_INVALID);
+    }
+    const inscripcion = getEntidad(id);
+    if (inscripcion.estado !== PRUEBA_AGENDADA && inscripcion.estado !== ESPERA) {
+        throw new BadRequestError(Messages.RESULTADO_SIN_PRUEBA);
+    }
+    return update(id, { estado: resultado });
+}
+
+// El socio vio el cambio que hizo el club: deja de figurar como novedad.
+function marcarVista(usuario, id) {
+    getPropia(usuario, id);
+    return InscripcionRepository.update(id, { nuevo: false });
 }
 
 function remove(id) {
@@ -178,12 +321,12 @@ function remove(id) {
 
 function solicitarBaja(usuario, id) {
     const inscripcion = getPropia(usuario, id);
-    const { PENDIENTE, CONFIRMADA, SUSPENDIDA, BAJA_PENDIENTE, CANCELADA } = EstadoInscripcion;
 
-    if (inscripcion.estado === PENDIENTE) {
+    // Retirar una solicitud, una prueba o la espera la cancela al instante
+    if ([SOLICITADA, PRUEBA_SOLICITADA, PRUEBA_AGENDADA, ESPERA].includes(inscripcion.estado)) {
         return InscripcionRepository.update(id, { estado: CANCELADA, fechaFinEfectiva: todayIso() });
     }
-    if (inscripcion.estado === CONFIRMADA || inscripcion.estado === SUSPENDIDA) {
+    if (inscripcion.estado === ACTIVA) {
         return InscripcionRepository.update(id, { estado: BAJA_PENDIENTE, fechaBajaSolicitada: todayIso() });
     }
     throw new BadRequestError(Messages.INSCRIPCION_YA_CERRADA);
@@ -196,6 +339,9 @@ export default {
     solicitar,
     superposiciones,
     update,
+    agendarPrueba,
+    cargarResultado,
+    marcarVista,
     remove,
     solicitarBaja
 };

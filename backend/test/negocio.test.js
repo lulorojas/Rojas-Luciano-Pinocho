@@ -111,7 +111,7 @@ describe('inscripciones: reglas del socio', () => {
         assert.equal((await call('/cuotas/2/pagar', { method: 'POST', token: tomas.token, body: { medioPago: 'transferencia' } })).status, 200);
         const inscripto = await call('/inscripciones', { method: 'POST', token: tomas.token, body: { idDisciplina: 3 } });
         assert.equal(inscripto.status, 201);
-        assert.equal(inscripto.body.estado, 'PENDIENTE');
+        assert.equal(inscripto.body.estado, 'SOLICITADA');
     });
 
     test('un socio de baja no puede inscribirse ni pagar cuotas', async () => {
@@ -147,7 +147,7 @@ describe('inscripciones: reglas del socio', () => {
         const disciplina = await call('/disciplinas', {
             method: 'POST',
             token: admin.token,
-            body: { nombre: 'Yoga', descripcion: '', cupoMaximo: 10, cuotaMensual: 4000, activa: true }
+            body: { nombre: 'Yoga', descripcion: '', cupoMaximo: 10, cuotaAparte: 4000, activa: true }
         });
         assert.equal(disciplina.status, 201);
         const horario = await call('/horarios', {
